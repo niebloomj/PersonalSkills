@@ -14,9 +14,10 @@ Install the whole catalog into your user-level folders for every supported agent
 npx --yes skills@1.8.1 add niebloomj/Skills --all --global --copy
 ```
 
-To browse it first, run `npx --yes skills@1.8.1 add niebloomj/Skills --list`. To install selected skills, add `--skill <name>`. To sync after an approved catalog update, run `scripts/sync-skills.sh` or re-run the install with `--force`:
+To browse it first, run `npx --yes skills@1.8.1 add niebloomj/Skills --list`. To install selected skills, add `--skill <name>`. To sync after an approved catalog update, run `scripts/sync-skills.sh`; it removes retired `cloudflare` and `grill-me` copies before refreshing. Re-running the install command with `--force` refreshes included skills but does not remove skills dropped from the catalog:
 
 ```sh
+npx --yes skills@1.8.1 remove --global cloudflare grill-me --yes
 npx --yes skills@1.8.1 add niebloomj/Skills --all --global --copy --force
 ```
 
@@ -54,7 +55,7 @@ Use the **Code** tab's **Pull requests** list to review updates. Add or remove c
 - [`catalog.json`](catalog.json) records each source repository, exact commit, upstream path, and license.
 - [`licenses/`](licenses/) preserves source license texts. `sentry-cli` is under Sentry's Functional Source License (FSL-1.1-Apache-2.0), whose permitted-purpose and notice terms apply. The other included source repositories identify MIT or Apache-2.0 licenses.
 
-The curated set includes the requested actively maintained skills plus explicit skill dependencies. `grill-me` and `grill-with-docs` are short aliases; `grilling` and `domain-modeling` are included because the aliases call them. The chief-of-staff workflow includes its referenced sibling skills. The writing-skills skill includes Superpowers' `test-driven-development` reference, and architecture/spec skills include the codebase-design and TDD companions they call.
+The curated set includes the requested actively maintained skills plus explicit skill dependencies. `grill-with-docs` delegates to `grilling` and `domain-modeling`. `break-ui` refers to `emil-design-eng` and `review-animations`; those skills' `choreograph` reference is included too. The chief-of-staff workflow includes its referenced sibling skills. The writing-skills skill includes Superpowers' `test-driven-development` reference; the separate `tdd` skill remains in the catalog as well. Architecture/spec skills include the codebase-design and TDD companions they call.
 
 Some requested sources were not copied:
 

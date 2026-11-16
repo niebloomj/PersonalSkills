@@ -9,9 +9,9 @@
       "source": "mattpocock/skills",
       "upstreamPath": "skills/in-progress/chief-of-staff"
     },
-    "cloudflare": {
-      "source": "cloudflare/skills",
-      "upstreamPath": "skills/cloudflare"
+    "choreograph": {
+      "source": "emilkowalski/skills",
+      "upstreamPath": "skills/choreograph"
     },
     "code-review": {
       "source": "mattpocock/skills",
@@ -33,13 +33,13 @@
       "source": "mattpocock/skills",
       "upstreamPath": "skills/engineering/domain-modeling"
     },
+    "emil-design-eng": {
+      "source": "emilkowalski/skills",
+      "upstreamPath": "skills/emil-design-eng"
+    },
     "find-skills": {
       "source": "vercel-labs/skills",
       "upstreamPath": "skills/find-skills"
-    },
-    "grill-me": {
-      "source": "mattpocock/skills",
-      "upstreamPath": "skills/productivity/grill-me"
     },
     "grill-with-docs": {
       "source": "mattpocock/skills",
@@ -72,6 +72,10 @@
     "retro": {
       "source": "mattpocock/skills",
       "upstreamPath": "skills/engineering/retro"
+    },
+    "review-animations": {
+      "source": "emilkowalski/skills",
+      "upstreamPath": "skills/review-animations"
     },
     "sentry-cli": {
       "source": "getsentry/toolkit",
@@ -123,12 +127,6 @@
     }
   },
   "sources": {
-    "cloudflare/skills": {
-      "license": "Apache-2.0",
-      "licenseFile": "licenses/cloudflare-skills-LICENSE",
-      "licensePath": "LICENSE",
-      "ref": "cbf893b954222276bf1af57e5f23379231e0efb9"
-    },
     "coreyhaines31/marketingskills": {
       "license": "MIT",
       "licenseFile": "licenses/coreyhaines31-marketingskills-LICENSE",
