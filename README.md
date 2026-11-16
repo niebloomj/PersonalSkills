@@ -41,9 +41,10 @@ skills** action check those sources and open a pull request when selected skills
 change. It does not merge the pull request or execute upstream install scripts.
 Review the diff, skill instructions, companion files, and license before
 merging; merged content becomes the approved version in your personal catalog.
-GitHub Actions must be allowed to create pull requests (`Settings` → `Actions`
-→ `General` → `Workflow permissions` → **Read and write permissions**). Write
-access remains limited to the updater job.
+In repository settings, select **Read and write permissions** and enable
+**Allow GitHub Actions to create and approve pull requests** under `Settings` →
+`Actions` → `General` → `Workflow permissions`. The workflow grants write
+access only to its updater job.
 
 Use the **Code** tab's **Pull requests** list to review updates. Add or remove catalog entries by editing `catalog.json` and reviewing the resulting content. The update script fails closed if a source path disappears, a skill's name changes, or an upstream file is not a regular text file.
 
