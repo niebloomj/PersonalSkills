@@ -86,12 +86,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           if git diff --quiet; then
             echo "No upstream changes to propose."
             exit 0
           fi
-          branch="automation/upstream-skills-${GITHUB_RUN_ID}"
+          branch="automation/upstream-skills-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git switch -c "$branch"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
