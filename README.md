@@ -36,8 +36,7 @@ on an approved catalog revision. `scripts/sync-skills.sh` wraps the same Python 
 
 Installation never executes upstream scripts or installs their dependencies.
 Individual skills may require tools, subscriptions, plugins, or MCP servers.
-For example, `python-executor` uses an external execution service, while
-`gpt-image-2` needs the Codex CLI and a suitable ChatGPT subscription.
+For example, `gpt-image-2` needs the Codex CLI and a suitable ChatGPT subscription.
 
 ## Coexist with a company registry
 
@@ -116,12 +115,13 @@ contain private configuration and must never be committed or shared.
   removed rather than frozen into this collection.
 - Standalone Codex runtime-helper copies are retired. Their native plugin
   remains responsible for the matching helpers and runtime scripts.
+- Curation retirements are recorded in `catalog.json`. Sync backs up and removes
+  their global projections and CC-Switch rows instead of reinstalling them.
 
 Vendored invocation-only skills carry both standard `disable-model-invocation` metadata
-and Codex's `policy.allow_implicit_invocation: false`. Potentially broad workflows
-such as `proactive-agent`, `remembering-conversations`, and `python-executor` are
-explicit-only. User and project approval, scope, and delegation rules still take
-precedence over imported workflows.
+and Codex's `policy.allow_implicit_invocation: false`. Workflows such as
+`second-opinion` and `standards-spec-review` are explicit-only. User and project
+approval, scope, and delegation rules still take precedence over imported workflows.
 
 ## Add your own skill
 
@@ -168,9 +168,9 @@ commit, selected path, transformation, and license notice.
 is CC-BY-SA-4.0; Sentry CLI uses FSL-1.1-Apache-2.0. Other selected sources declare
 MIT or Apache-2.0. Those source-specific terms still apply to their content.
 
-Three upstreams publish an MIT declaration in their README or skill rather than
-a standalone license file. Their declarations and the limitation are explicitly
-preserved in the catalog and notices; no missing license text is invented.
+One upstream publishes an MIT declaration in its README rather than a standalone
+license file. The declaration and limitation are explicitly preserved in the
+catalog and notice; no missing license text is invented.
 
 Remotion remains excluded pending licensing clarification. Browser fingerprint
 spoofing/identity-evasion skills are not part of this curated collection.

@@ -76,6 +76,55 @@ class SyncTests(unittest.TestCase):
         )
         self.assertFalse((self.home / ".claude/skills/code-review").exists())
 
+    def test_curated_catalog_retires_approved_cuts_from_existing_installations(self):
+        repository = Path(__file__).resolve().parents[1]
+        removed = (
+            "claude-md-improver",
+            "driving-claude-code-sessions",
+            "find-bugs",
+            "parallel-debugging",
+            "proactive-agent",
+            "python-executor",
+            "python-type-safety",
+            "remembering-conversations",
+            "security-review",
+            "skill-improver",
+        )
+        roots = [
+            self.home / relative
+            for relative in (
+                ".agents/skills",
+                ".claude/skills",
+                ".codex/skills",
+                ".config/opencode/skills",
+            )
+        ]
+        for root in roots:
+            root.mkdir(parents=True, exist_ok=True)
+            for name in removed:
+                target = repository / "skills" / name if root == roots[0] else roots[0] / name
+                (root / name).symlink_to(target, target_is_directory=True)
+
+        module = self.module()
+        report = module.synchronize(repository, self.home, apply=True)
+        remaining = [
+            name
+            for name in removed
+            if any((root / name).exists() or (root / name).is_symlink() for root in roots)
+        ]
+        self.assertEqual(remaining, [])
+        backup = Path(report["backup"])
+        for root in roots:
+            for name in removed:
+                self.assertTrue((backup / root.relative_to(self.home) / name).is_symlink())
+        catalog = module.load_skills(repository)
+        for name in catalog["skills"]:
+            self.assertEqual((roots[0] / name).resolve(), repository / "skills" / name)
+        self.assertEqual(
+            module.audit_report(repository, self.home), {"problems": [], "warnings": []}
+        )
+        self.assertEqual(module.synchronize(repository, self.home, apply=True)["actions"], [])
+
     def test_external_registry_content_is_preserved(self):
         external = self.home / ".agents/skills/company-owned"
         self.skill(external, "company-owned", "Registry content.")

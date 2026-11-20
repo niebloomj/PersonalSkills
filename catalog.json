@@ -3,11 +3,21 @@
   "repository": "niebloomj/Skills",
   "retired": {
     "ask-questions-if-underspecified": "Removed by its upstream maintainer because clarification is native agent behavior: https://github.com/trailofbits/skills/pull/214",
+    "claude-md-improver": "Use agents-md for the retained cross-agent instruction-file workflow.",
     "cloudflare": "Previously removed from the curated catalog.",
     "code-review": "Use sentry-code-review or standards-spec-review.",
     "codex-cli-runtime": "Runtime-owned helper supplied by the Codex plugin, not a standalone skill.",
     "codex-result-handling": "Runtime-owned helper supplied by the Codex plugin, not a standalone skill.",
-    "grill-me": "Replaced upstream by grilling."
+    "driving-claude-code-sessions": "Separate permission-bypassed tmux worker-management stack, excluded from this catalog.",
+    "find-bugs": "Overlaps the retained named review skills and the company-managed full-pr-review.",
+    "grill-me": "Replaced upstream by grilling.",
+    "parallel-debugging": "Additional debugging workflow overlapping the retained diagnosis skills.",
+    "proactive-agent": "Separate autonomy, identity, memory and heartbeat framework, excluded from this catalog.",
+    "python-executor": "External code-execution service, excluded in favor of local Python execution.",
+    "python-type-safety": "General instructional material with little additional value alongside the retained Python guidance.",
+    "remembering-conversations": "Requires a separate episodic-memory backend rather than the existing memory workflow.",
+    "security-review": "Broad web-app checklist overlapping the retained specialist security skills.",
+    "skill-improver": "Requires an external plugin workflow and reviewer that are not self-contained in the skill."
   },
   "skills": {
     "agentic-actions-auditor": {
@@ -35,10 +45,6 @@
       "source": "emilkowalski/skills",
       "upstreamPath": "skills/choreograph"
     },
-    "claude-md-improver": {
-      "source": "anthropics/claude-plugins-official",
-      "upstreamPath": "plugins/claude-md-management/skills/claude-md-improver"
-    },
     "code-simplifier": {
       "source": "getsentry/skills",
       "upstreamPath": "skills/code-simplifier"
@@ -64,11 +70,6 @@
       "source": "mattpocock/skills",
       "upstreamPath": "skills/engineering/domain-modeling"
     },
-    "driving-claude-code-sessions": {
-      "source": "obra/claude-session-driver",
-      "upstreamPath": "skills/driving-claude-code-sessions",
-      "manual": true
-    },
     "emil-design-eng": {
       "source": "emilkowalski/skills",
       "upstreamPath": "skills/emil-design-eng"
@@ -77,10 +78,6 @@
       "source": "obra/superpowers",
       "upstreamPath": "skills/executing-plans",
       "replaceMarkdown": {"superpowers:": ""}
-    },
-    "find-bugs": {
-      "source": "getsentry/skills",
-      "upstreamPath": "skills/find-bugs"
     },
     "find-skills": {
       "source": "vercel-labs/skills",
@@ -129,37 +126,14 @@
       "source": "trailofbits/skills",
       "upstreamPath": "plugins/modern-python/skills/modern-python"
     },
-    "parallel-debugging": {
-      "source": "wshobson/agents",
-      "upstreamPath": "plugins/agent-teams/skills/parallel-debugging"
-    },
     "playwright-cli": {
       "source": "microsoft/playwright-cli",
       "upstreamPath": "skills/playwright-cli"
-    },
-    "proactive-agent": {
-      "source": "halthelobster/proactive-agent",
-      "upstreamPath": ".",
-      "manual": true
-    },
-    "python-executor": {
-      "source": "inference-sh/skills",
-      "upstreamPath": "tools/utilities/python-executor",
-      "manual": true
-    },
-    "python-type-safety": {
-      "source": "wshobson/agents",
-      "upstreamPath": "plugins/python-development/skills/python-type-safety"
     },
     "receiving-code-review": {
       "source": "obra/superpowers",
       "upstreamPath": "skills/receiving-code-review",
       "replaceMarkdown": {"superpowers:": ""}
-    },
-    "remembering-conversations": {
-      "source": "obra/episodic-memory",
-      "upstreamPath": "skills/remembering-conversations",
-      "manual": true
     },
     "requesting-code-review": {
       "source": "obra/superpowers",
@@ -182,10 +156,6 @@
     "security-best-practices": {
       "source": "openai/skills",
       "upstreamPath": "skills/.curated/security-best-practices"
-    },
-    "security-review": {
-      "source": "affaan-m/ECC",
-      "upstreamPath": "skills/security-review"
     },
     "security-threat-model": {
       "source": "openai/skills",
@@ -213,11 +183,6 @@
     "sharp-edges": {
       "source": "trailofbits/skills",
       "upstreamPath": "plugins/sharp-edges/skills/sharp-edges"
-    },
-    "skill-improver": {
-      "source": "trailofbits/skills",
-      "upstreamPath": "plugins/code-improver/skills/skill-improver",
-      "manual": true
     },
     "standards-spec-review": {
       "source": "mattpocock/skills",
@@ -300,23 +265,11 @@
     }
   },
   "sources": {
-    "affaan-m/ECC": {
-      "license": "MIT",
-      "licenseFile": "licenses/affaan-m-ECC-LICENSE",
-      "licensePath": "LICENSE",
-      "ref": "3f14a103a8694e51c1df9a806217a6d0b5f7a6f7"
-    },
     "agentspace-so/agent-skills": {
       "license": "MIT",
       "licenseFile": "licenses/agentspace-so-agent-skills-LICENSE",
       "licensePath": "LICENSE",
       "ref": "18d61002379d024d8754318171479968c68ff6c4"
-    },
-    "anthropics/claude-plugins-official": {
-      "license": "Apache-2.0",
-      "licenseFile": "licenses/anthropics-claude-plugins-official-LICENSE",
-      "licensePath": "LICENSE",
-      "ref": "6d491811023d7af2c96a7fab274935922b29ed01"
     },
     "coreyhaines31/marketingskills": {
       "license": "MIT",
@@ -342,20 +295,6 @@
       "licensePath": "LICENSE",
       "ref": "a582c51ee29d0f35e6ac321340796f77d43da733"
     },
-    "halthelobster/proactive-agent": {
-      "license": "MIT",
-      "licenseFile": "licenses/halthelobster-proactive-agent-NOTICE.md",
-      "licensePath": "SKILL.md",
-      "licenseNote": "Upstream grants use, modification, and distribution under MIT in SKILL.md; no separate license file is published.",
-      "ref": "058ed007012a2c88465d2a59edc5cab48596aa59"
-    },
-    "inference-sh/skills": {
-      "license": "MIT",
-      "licenseFile": "licenses/inference-sh-skills-README.md",
-      "licensePath": "README.md",
-      "licenseNote": "Upstream declares MIT through its README license badge; no separate license file is published.",
-      "ref": "c895a471c4e7cafd46ed8c0cf76606c5dca80639"
-    },
     "mattpocock/skills": {
       "license": "MIT",
       "licenseFile": "licenses/mattpocock-skills-LICENSE",
@@ -367,18 +306,6 @@
       "licenseFile": "licenses/microsoft-playwright-cli-LICENSE",
       "licensePath": "LICENSE",
       "ref": "b21724888b8100b05ef8dee3a92f2bb03bf4dcde"
-    },
-    "obra/claude-session-driver": {
-      "license": "MIT",
-      "licenseFile": "licenses/obra-claude-session-driver-LICENSE",
-      "licensePath": "LICENSE",
-      "ref": "319bb0fe2960ba8f3a7eff2f786f9c57e284eecc"
-    },
-    "obra/episodic-memory": {
-      "license": "MIT",
-      "licenseFile": "licenses/obra-episodic-memory-LICENSE",
-      "licensePath": "LICENSE",
-      "ref": "7e06519357777badd7a115d2014a7ef845904310"
     },
     "obra/superpowers": {
       "license": "MIT",
