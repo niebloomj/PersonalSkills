@@ -144,10 +144,21 @@ the upstream updater. Keep their supporting files beside `SKILL.md`.
 
 ## Review and update
 
-A weekly workflow and manual **Check upstream skills** action propose upstream
-changes as draft PRs. Merging a PR updates the approved catalog, not installations
-on other machines. Pull the reviewed catalog and run the sync/audit commands on
-each machine. Do not refresh this collection through separate upstream installers.
+The weekly **Check upstream skills** workflow keeps the catalog current without a
+human in the loop. For each source it adopts the newest upstream commit that is at
+least seven days old, and it never moves a pin backwards. Updates that pass the
+tests, pin verification, and policy checks merge automatically through a pull
+request, so each one can be reverted with one click.
+
+An update needs review when it adds or changes a script or executable file,
+changes a license, changes whether a skill runs automatically, or comes from
+rewritten upstream history. Those updates become one draft pull request that lists
+the reasons. Merge it to accept them; close it to reject that exact update, which
+is then not proposed again. A manual run can use a shorter waiting period.
+
+Merged updates change the catalog, not installations on other machines. Pull the
+catalog and run the sync/audit commands on each machine. Do not refresh this
+collection through separate upstream installers.
 
 ```sh
 python3 -m unittest discover -s tests -v
