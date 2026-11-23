@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import urllib.parse
+from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -22,6 +23,20 @@ RAW = "https://raw.githubusercontent.com"
 MAX_FILE_BYTES = 5_000_000
 MAX_SKILL_BYTES = 20_000_000
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+SCRIPT_SUFFIXES = {
+    ".bash",
+    ".cjs",
+    ".command",
+    ".js",
+    ".mjs",
+    ".pl",
+    ".ps1",
+    ".py",
+    ".rb",
+    ".sh",
+    ".ts",
+    ".zsh",
+}
 
 
 def request(url: str) -> bytes:
@@ -50,7 +65,7 @@ def request(url: str) -> bytes:
     return result.stdout
 
 
-def json_request(url: str) -> dict[str, Any]:
+def json_request(url: str) -> Any:
     payload = request(url)
     if len(payload) > MAX_FILE_BYTES:
         raise ValueError(f"GitHub API response exceeds {MAX_FILE_BYTES} bytes: {url}")
@@ -294,14 +309,89 @@ def validate_local(catalog: dict[str, Any]) -> None:
             raise ValueError(f"Missing or empty license file: {details['licenseFile']}")
 
 
-def latest_ref(repository: str) -> str:
+def latest_ref(repository: str, min_age_days: int = 0, now: datetime | None = None) -> str | None:
     metadata = json_request(f"{API}/repos/{repository}")
     branch = urllib.parse.quote(metadata["default_branch"], safe="")
-    commit = json_request(f"{API}/repos/{repository}/commits/{branch}")
-    sha = commit["sha"]
+    if min_age_days:
+        cutoff = (now or datetime.now(UTC)) - timedelta(days=min_age_days)
+        until = urllib.parse.quote(cutoff.strftime("%Y-%m-%dT%H:%M:%SZ"), safe="")
+        commits = json_request(
+            f"{API}/repos/{repository}/commits?sha={branch}&until={until}&per_page=1"
+        )
+        if not commits:
+            return None
+        sha = commits[0]["sha"]
+    else:
+        sha = json_request(f"{API}/repos/{repository}/commits/{branch}")["sha"]
     if not SHA_RE.fullmatch(sha):
         raise ValueError(f"{repository}: GitHub returned an invalid commit SHA")
     return sha
+
+
+def pin_relation(repository: str, current: str, candidate: str) -> str:
+    if current == candidate:
+        return "identical"
+    comparison = json_request(
+        f"{API}/repos/{repository}/compare/{current}...{candidate}?per_page=1"
+    )
+    return comparison["status"]
+
+
+def current_executables(name: str) -> set[str]:
+    folder = repository_path(f"skills/{name}")
+    return {
+        path.relative_to(folder).as_posix()
+        for path in folder.rglob("*")
+        if path.is_file() and not path.is_symlink() and path.stat().st_mode & 0o111
+    }
+
+
+def upstream_executables(tree: dict[str, Any], source_path: str) -> set[str]:
+    prefix = source_prefix(source_path)
+    return {
+        entry["path"][len(prefix) :]
+        for entry in tree.get("tree", [])
+        if entry.get("type") == "blob"
+        and entry.get("mode") == "100755"
+        and entry["path"].startswith(prefix)
+    }
+
+
+def is_script(path: str, data: bytes, executable: bool) -> bool:
+    return (
+        executable
+        or PurePosixPath(path).suffix.lower() in SCRIPT_SUFFIXES
+        or data.startswith(b"#!")
+    )
+
+
+def invocation_policy(files: dict[str, bytes]) -> tuple[bool, bool]:
+    frontmatter = files["SKILL.md"].decode("utf-8").split("\n---\n", 1)[0]
+    codex = files.get("agents/openai.yaml", b"").decode("utf-8")
+    return (
+        bool(re.search(r"(?m)^disable-model-invocation:[ \t]*true[ \t]*$", frontmatter)),
+        bool(re.search(r"(?m)^[ \t]+allow_implicit_invocation:[ \t]*false\b", codex)),
+    )
+
+
+def review_reasons(
+    name: str,
+    old_files: dict[str, bytes],
+    new_files: dict[str, bytes],
+    old_executables: set[str],
+    new_executables: set[str],
+) -> list[str]:
+    reasons = [
+        f"skills/{name}/{path}: adds or changes a script or executable file"
+        for path, data in sorted(new_files.items())
+        if (old_files.get(path) != data or (path in old_executables) != (path in new_executables))
+        and is_script(path, data, path in new_executables)
+    ]
+    if invocation_policy(old_files) != invocation_policy(new_files):
+        reasons.append(
+            f"skills/{name}: changes whether the skill runs automatically or only when invoked"
+        )
+    return reasons
 
 
 def read_source(repository: str, ref: str, path: str) -> bytes:
@@ -477,50 +567,80 @@ def vendor_catalog(catalog: dict[str, Any]) -> None:
             raise
 
 
-def update_catalog(catalog: dict[str, Any]) -> list[str]:
+def update_catalog(
+    catalog: dict[str, Any],
+    *,
+    min_age_days: int = 0,
+    only: str | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
     catalog = json.loads(json.dumps(catalog))
     tree_cache: dict[tuple[str, str], dict[str, Any]] = {}
     skill_updates: dict[str, dict[str, bytes]] = {}
     license_updates: dict[str, bytes] = {}
-    changed_sources: dict[str, str] = {}
+    report: dict[str, Any] = {"clean": {}, "review": {}, "written": []}
 
     for repository, details in catalog["sources"].items():
-        new_ref = latest_ref(repository)
-        updates = {
-            name: files
-            for name, skill in catalog["skills"].items()
-            if skill.get("source") == repository
-            and (
-                files := render_skill(
-                    name,
-                    skill,
-                    fetch_skill(
-                        repository,
-                        new_ref,
-                        skill["upstreamPath"],
-                        skill.get("upstreamName", name),
-                        tree_cache,
-                        exclude=skill.get("exclude"),
-                    ),
-                )
+        candidate = latest_ref(repository, min_age_days, now=now)
+        if candidate is None:
+            continue
+        relation = pin_relation(repository, details["ref"], candidate)
+        if relation in {"identical", "behind"}:
+            continue
+        updates: dict[str, dict[str, bytes]] = {}
+        reasons: list[str] = []
+        for name, skill in catalog["skills"].items():
+            if skill.get("source") != repository:
+                continue
+            files = render_skill(
+                name,
+                skill,
+                fetch_skill(
+                    repository,
+                    candidate,
+                    skill["upstreamPath"],
+                    skill.get("upstreamName", name),
+                    tree_cache,
+                    exclude=skill.get("exclude"),
+                ),
             )
-            != current_files(name)
-        }
-        license_data = read_source(repository, new_ref, details["licensePath"])
+            old_files = current_files(name)
+            old_executables = current_executables(name)
+            new_executables = upstream_executables(
+                tree_cache.get((repository, candidate), {}), skill["upstreamPath"]
+            ) & set(files)
+            if files != old_files or new_executables != old_executables:
+                updates[name] = files
+                reasons.extend(
+                    review_reasons(name, old_files, files, old_executables, new_executables)
+                )
+        license_data = read_source(repository, candidate, details["licensePath"])
         license_data.decode("utf-8")
         license_file = repository_path(details["licenseFile"])
         if not license_file.is_file():
             raise ValueError(f"Missing current license file: {details['licenseFile']}")
-        if updates or license_data != license_file.read_bytes():
-            details["ref"] = new_ref
-            skill_updates.update(updates)
-            if license_data != license_file.read_bytes():
-                license_updates[details["licenseFile"]] = license_data
-            changed_sources[repository] = new_ref
+        license_changed = license_data != license_file.read_bytes()
+        if not updates and not license_changed:
+            continue
+        if license_changed:
+            reasons.append(f"{repository}: license text changed")
+        if relation != "ahead":
+            reasons.append(f"{repository}: upstream history no longer contains the pinned commit")
+        entry: dict[str, Any] = {"ref": candidate, "skills": sorted(updates)}
+        if reasons:
+            entry["reasons"] = reasons
+        report["review" if reasons else "clean"][repository] = entry
+        if (only == "clean" and reasons) or (only == "review" and not reasons):
+            continue
+        details["ref"] = candidate
+        skill_updates.update(updates)
+        if license_changed:
+            license_updates[details["licenseFile"]] = license_data
+        report["written"].append(repository)
 
-    if not changed_sources:
-        print("No selected skills or licenses changed upstream.")
-        return []
+    if not report["written"]:
+        print("No selected skills or licenses to update.")
+        return report
 
     temp_root = Path(tempfile.mkdtemp(prefix="skills-update-", dir=ROOT))
     replacements: list[tuple[Path, Path]] = []
@@ -572,13 +692,20 @@ def update_catalog(catalog: dict[str, Any]) -> list[str]:
         shutil.rmtree(temp_root, ignore_errors=True)
 
     print("Updated selected upstream content:")
-    for repository, ref in sorted(changed_sources.items()):
-        print(f"  {repository} -> {ref}")
+    for repository in report["written"]:
+        print(f"  {repository} -> {catalog['sources'][repository]['ref']}")
     for name in sorted(skill_updates):
         print(f"  skills/{name}")
     for path in sorted(license_updates):
         print(f"  {path}")
-    return sorted(skill_updates)
+    return report
+
+
+def non_negative_int(value: str) -> int:
+    number = int(value)
+    if number < 0:
+        raise argparse.ArgumentTypeError("must be zero or more")
+    return number
 
 
 def main() -> int:
@@ -596,9 +723,25 @@ def main() -> int:
         action="store_true",
         help="import all recorded upstream pins, including new catalog entries",
     )
+    parser.add_argument(
+        "--min-age-days",
+        type=non_negative_int,
+        default=0,
+        help="only adopt upstream commits at least this many days old",
+    )
+    parser.add_argument(
+        "--only",
+        choices=("clean", "review"),
+        help="apply only updates that pass, or only updates that need, review checks",
+    )
+    parser.add_argument("--report", type=Path, help="write a JSON summary of the update")
     args = parser.parse_args()
     if sum((args.check, args.verify_pins, args.vendor)) > 1:
         parser.error("--check, --verify-pins, and --vendor are mutually exclusive")
+    if (args.check or args.verify_pins or args.vendor) and (
+        args.min_age_days or args.only or args.report
+    ):
+        parser.error("--min-age-days, --only, and --report apply only to upstream updates")
     try:
         catalog = load_catalog()
         if args.vendor:
@@ -611,8 +754,12 @@ def main() -> int:
         elif args.verify_pins:
             verify_pins(catalog)
         elif not args.vendor:
-            update_catalog(catalog)
+            report = update_catalog(catalog, min_age_days=args.min_age_days, only=args.only)
             validate_local(load_catalog())
+            if args.report:
+                args.report.write_text(
+                    json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+                )
     except (
         OSError,
         ValueError,

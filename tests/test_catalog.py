@@ -70,8 +70,15 @@ class CatalogTests(unittest.TestCase):
                 patch.object(
                     update_skills,
                     "latest_ref",
-                    side_effect=lambda source: (
+                    side_effect=lambda source, *arguments, **keywords: (
                         new_ref if source == moved else sources[source]["ref"]
+                    ),
+                ),
+                patch.object(
+                    update_skills,
+                    "pin_relation",
+                    side_effect=lambda source, current, candidate: (
+                        "identical" if current == candidate else "ahead"
                     ),
                 ),
                 patch.object(update_skills, "fetch_skill", return_value={}),
@@ -91,9 +98,10 @@ class CatalogTests(unittest.TestCase):
                     side_effect=lambda source, ref, path: licenses[source],
                 ),
             ):
-                changed = update_skills.update_catalog(update_skills.load_catalog())
+                report = update_skills.update_catalog(update_skills.load_catalog())
             after = catalog_path.read_text(encoding="utf-8")
-            self.assertEqual(changed, moved_skills)
+            self.assertEqual(report["clean"], {moved: {"ref": new_ref, "skills": moved_skills}})
+            self.assertEqual(report["written"], [moved])
             self.assertEqual(
                 [
                     line
