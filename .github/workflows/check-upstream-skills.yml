@@ -86,9 +86,10 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - name: Close superseded update pull requests
         run: |
-          gh pr list --state open --base main --json number,headRefName \
-            --jq '.[] | select(.headRefName | startswith("automation/upstream-skills-")
-              or startswith("automation/upstream-updates-")) | .number' |
+          gh pr list --state open --base main --json number,headRefName,isCrossRepository \
+            --jq '.[] | select((.isCrossRepository | not) and (.headRefName
+              | startswith("automation/upstream-skills-") or startswith("automation/upstream-updates-")))
+              | .number' |
           while read -r number; do
             gh pr close "$number" --delete-branch --comment \
               "Superseded by a newer run of the upstream updater, which merges safe updates itself."
@@ -109,7 +110,7 @@ jobs:
           git diff --check -- . ':(exclude)licenses/**' ':(exclude)skills/**'
           branch="automation/upstream-updates-$RUN_LABEL"
           git switch -c "$branch"
-          git add catalog.json licenses/ skills/
+          git add catalog.json licenses/ skills/ .claude-plugin/
           git commit -m "chore: update upstream skills"
           git push origin "$branch"
           jq -r '"Merged automatically after tests, pin verification, and policy checks passed.\n\n"
@@ -143,24 +144,31 @@ jobs:
           python scripts/update_skills.py --verify-pins
           digest="$(jq -cS .review "$RUNNER_TEMP/review.json" | sha256sum | cut -c1-12)"
           branch="automation/upstream-review-$digest"
-          if [ "$(gh pr list --state all --head "$branch" --json number --jq length)" -gt 0 ]; then
+          proposed="$(gh pr list --state all --head "$branch" --json isCrossRepository,labels \
+            --jq '[.[] | select((.isCrossRepository | not)
+              and ([.labels[].name] | index("superseded") | not))] | length')"
+          if [ "$proposed" -gt 0 ]; then
             echo "This exact update was already proposed on $branch."
             exit 0
           fi
-          gh pr list --state open --base main --json number,headRefName \
-            --jq '.[] | select(.headRefName | startswith("automation/upstream-review-")) | .number' |
-          while read -r number; do
-            gh pr close "$number" --delete-branch --comment "Superseded by a newer upstream review."
-          done
           git switch -c "$branch"
-          git add catalog.json licenses/ skills/
+          git add catalog.json licenses/ skills/ .claude-plugin/
           git commit -m "chore: propose upstream skill updates for review"
-          git push origin "$branch"
+          git push --force origin "$branch"
           jq -r '"These upstream updates need your review: they could run commands, change agent"
             + " settings or permissions, change a license, or come from rewritten history.\n\n"
             + ([.review | to_entries[] | "- `\(.key)` → `\(.value.ref)`\n"
               + (.value.reasons | map("  - " + .) | join("\n"))] | join("\n"))
             + "\n\nMerge to accept. Close to reject this exact update; it will not be proposed again."' \
             "$RUNNER_TEMP/review.json" > "$RUNNER_TEMP/review.md"
-          gh pr create --draft --base main --head "$branch" \
-            --title "Review upstream skill updates" --body-file "$RUNNER_TEMP/review.md"
+          url="$(gh pr create --draft --base main --head "$branch" \
+            --title "Review upstream skill updates" --body-file "$RUNNER_TEMP/review.md")"
+          gh label create superseded --color ededed --force \
+            --description "Replaced by a newer automated proposal"
+          gh pr list --state open --base main --json number,headRefName,isCrossRepository \
+            --jq ".[] | select((.isCrossRepository | not) and .headRefName != \"$branch\"
+              and (.headRefName | startswith(\"automation/upstream-review-\"))) | .number" |
+          while read -r number; do
+            gh pr edit "$number" --add-label superseded
+            gh pr close "$number" --delete-branch --comment "Superseded by $url."
+          done
