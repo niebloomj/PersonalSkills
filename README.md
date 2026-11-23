@@ -29,8 +29,10 @@ agent/skills/name -> ~/.agents/skills/name -> this-checkout/skills/name
 ```
 
 It detects existing Claude Code, Codex, OpenCode, Gemini, Pi, Cursor, and
-CC-Switch skill directories. It also respects an existing
-`OPENCODE_CONFIG_DIR`. Keep this checkout in place: moving it requires another
+CC-Switch skill directories. It also manages `$OPENCODE_CONFIG_DIR/skills` and
+remembers it as `openCodeSkillsRoot` in the private configuration, so later runs
+from any shell keep it in sync while its parent folder exists. Delete that entry
+to stop managing it. Keep this checkout in place: moving it requires another
 sync. Branch switches also change the live skills, so keep the canonical checkout
 on an approved catalog revision. `scripts/sync-skills.sh` wraps the same Python command.
 

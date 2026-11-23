@@ -1,5 +1,7 @@
 import importlib
 import json
+import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -183,6 +185,30 @@ class SyncTests(unittest.TestCase):
         config.write_text(json.dumps({"exemptRoots": [str(runtime)]}))
         self.module().synchronize(self.repo, self.home, apply=True)
         self.assertEqual(self.module().audit(self.repo, self.home), [])
+
+    def test_opencode_skills_folder_stays_managed_without_the_environment_variable(self):
+        config_dir = self.home / ".hubspot/opencode/config"
+        config_dir.mkdir(parents=True)
+        projected = config_dir / "skills/sentry-code-review"
+        with patch.dict(os.environ, {"OPENCODE_CONFIG_DIR": str(config_dir)}):
+            self.module().synchronize(self.repo, self.home, apply=True)
+        self.assertTrue(projected.is_symlink())
+        projected.unlink()
+        with patch.dict(os.environ):
+            os.environ.pop("OPENCODE_CONFIG_DIR", None)
+            problems = self.module().audit(self.repo, self.home)
+        self.assertIn(f"link required: {projected}", problems)
+
+    def test_removed_opencode_config_folder_is_not_recreated(self):
+        config_dir = self.home / ".hubspot/opencode/config"
+        config_dir.mkdir(parents=True)
+        with patch.dict(os.environ, {"OPENCODE_CONFIG_DIR": str(config_dir)}):
+            self.module().synchronize(self.repo, self.home, apply=True)
+        shutil.rmtree(self.home / ".hubspot")
+        with patch.dict(os.environ):
+            os.environ.pop("OPENCODE_CONFIG_DIR", None)
+            self.module().synchronize(self.repo, self.home, apply=True)
+        self.assertFalse((self.home / ".hubspot").exists())
 
     def test_second_sync_is_a_no_op(self):
         self.module().synchronize(self.repo, self.home, apply=True)

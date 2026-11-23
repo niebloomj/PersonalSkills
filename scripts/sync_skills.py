@@ -50,6 +50,11 @@ def configuration(
         | {str(path.absolute()) for path in external_locks or []}
     )
     config["retired"] = sorted(set(config.get("retired", [])) | set(retired or []))
+    environment = os.environ.get("OPENCODE_CONFIG_DIR")
+    if environment:
+        candidate = Path(environment).expanduser().absolute() / "skills"
+        if candidate.is_relative_to(home.absolute()) and candidate.parent.is_dir():
+            config["openCodeSkillsRoot"] = str(candidate)
     return config
 
 
@@ -62,10 +67,14 @@ def skill_roots(home: Path, config: dict[str, Any]) -> list[Path]:
         if not root.is_absolute():
             raise ValueError(f"Extra skill roots must be absolute: {root}")
         roots.add(root)
-    environment = os.environ.get("OPENCODE_CONFIG_DIR")
-    if environment:
-        candidate = Path(environment).expanduser().absolute() / "skills"
-        if candidate.is_relative_to(home.absolute()) and candidate.parent.is_dir():
+    recorded = config.get("openCodeSkillsRoot")
+    if recorded:
+        candidate = Path(recorded)
+        if (
+            candidate.is_absolute()
+            and candidate.is_relative_to(home.absolute())
+            and candidate.parent.is_dir()
+        ):
             roots.add(candidate)
     unique: dict[Path, Path] = {}
     for root in [canonical, *sorted(roots - {canonical})]:
