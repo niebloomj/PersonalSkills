@@ -60,6 +60,8 @@ class CatalogTests(unittest.TestCase):
             }
             for name in moved_skills:
                 (root / "skills" / name).mkdir(parents=True)
+            (root / ".claude-plugin").mkdir()
+            (root / ".claude-plugin/marketplace.json").write_text("{}\n")
             licenses = {
                 source: (root / details["licenseFile"]).read_bytes()
                 for source, details in sources.items()
@@ -92,13 +94,16 @@ class CatalogTests(unittest.TestCase):
                 patch.object(
                     update_skills,
                     "current_files",
-                    return_value={"SKILL.md": b"---\nname: old\ndescription: Old.\n---\n"},
+                    side_effect=lambda name: {
+                        "SKILL.md": f"---\nname: {name}\ndescription: Old.\n---\n".encode()
+                    },
                 ),
                 patch.object(
                     update_skills,
                     "read_source",
                     side_effect=lambda source, ref, path: licenses[source],
                 ),
+                patch.object(update_skills, "marketplace_text", return_value="{}\n"),
             ):
                 report = update_skills.update_catalog(update_skills.load_catalog())
             after = catalog_path.read_text(encoding="utf-8")

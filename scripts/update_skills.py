@@ -11,54 +11,45 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import unicodedata
 import urllib.parse
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG_PATH = ROOT / "catalog.json"
+MARKETPLACE_FILE = ".claude-plugin/marketplace.json"
+MARKETPLACE = {
+    "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
+    "name": "niebloomj-skills",
+    "description": "Reviewed agent skills, one plugin per skill, pinned to upstream commits.",
+    "owner": {"name": "niebloomj", "url": "https://github.com/niebloomj"},
+}
 API = "https://api.github.com"
 RAW = "https://raw.githubusercontent.com"
 MAX_FILE_BYTES = 5_000_000
 MAX_SKILL_BYTES = 20_000_000
+MAX_ACTIVITY_PAGES = 10
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
-SCRIPT_SUFFIXES = {
-    ".bash",
-    ".cjs",
-    ".command",
-    ".js",
-    ".mjs",
-    ".pl",
-    ".ps1",
-    ".py",
-    ".rb",
-    ".sh",
-    ".ts",
-    ".zsh",
-}
-DESCRIPTIVE_FRONTMATTER = {
-    "argument-hint",
-    "compatibility",
-    "description",
-    "displayName",
-    "emoji",
-    "homepage",
-    "license",
-    "metadata",
-    "name",
-    "version",
-    "when_to_use",
-}
-SHELL_FENCE = re.compile(r"^\s*(`{3,}|~{3,})!")
-INLINE_SHELL = re.compile(r"(?:^|\s)!`")
+ZERO_SHA = "0" * 40
+NEXT_PAGE = re.compile(r'<([^>]+)>;\s*rel="next"')
+AUTOMATIC_SUFFIXES = {".md", ".txt"}
+LICENSE_NAME = re.compile(r"(?i)^(?:licen[cs]e|copying|notice)(?:[.-]|$)")
+GRANTING_SETTINGS = {"allowed-tools", "hooks"}
+SHELL_SYNTAX = ("!`", "```!")
+PLAIN_START = set("-?:,[]{}#&*!|>'\"%@`")
+BLOCK_DESCRIPTION = re.compile(r"description:[ ]*[>|][+-]?[ ]*")
 
 
-def request(url: str) -> bytes:
+def request(url: str, *, include_headers: bool = False) -> bytes:
     parsed = urllib.parse.urlsplit(url)
     if parsed.hostname == "api.github.com":
         endpoint = parsed.path.lstrip("/") + ("?" + parsed.query if parsed.query else "")
         arguments = ["gh", "api", endpoint]
+        if include_headers:
+            arguments.append("--include")
         if "/git/trees/" in endpoint:
             arguments.extend(["--cache", "24h"])
     elif parsed.hostname == "raw.githubusercontent.com":
@@ -85,6 +76,20 @@ def json_request(url: str) -> Any:
     if len(payload) > MAX_FILE_BYTES:
         raise ValueError(f"GitHub API response exceeds {MAX_FILE_BYTES} bytes: {url}")
     return json.loads(payload)
+
+
+def json_pages(url: str, max_pages: int) -> Iterator[Any]:
+    for _ in range(max_pages):
+        payload = request(url, include_headers=True)
+        if len(payload) > MAX_FILE_BYTES:
+            raise ValueError(f"GitHub API response exceeds {MAX_FILE_BYTES} bytes: {url}")
+        head, _, body = payload.replace(b"\r\n", b"\n").partition(b"\n\n")
+        yield json.loads(body)
+        following = NEXT_PAGE.search(head.decode("utf-8", errors="replace"))
+        if following is None:
+            return
+        url = following[1]
+    raise ValueError(f"GitHub returned more than {max_pages} pages: {url}")
 
 
 def safe_relative_path(raw: str) -> PurePosixPath:
@@ -138,7 +143,15 @@ def skill_files(tree: dict[str, Any], source_path: str) -> list[dict[str, Any]]:
     )
 
 
+def path_key(path: str) -> str:
+    return unicodedata.normalize("NFKC", path).casefold()
+
+
 def validate_skill(name: str, files: dict[str, bytes]) -> None:
+    seen: dict[str, str] = {}
+    for path in sorted(files):
+        if (other := seen.setdefault(path_key(path), path)) != path:
+            raise ValueError(f"{name}: {other} and {path} differ only in case or Unicode form")
     content = files.get("SKILL.md")
     if content is None:
         raise ValueError(f"{name}: SKILL.md is missing")
@@ -322,24 +335,44 @@ def validate_local(catalog: dict[str, Any]) -> None:
         license_file = repository_path(details["licenseFile"])
         if not license_file.is_file() or not license_file.read_bytes().strip():
             raise ValueError(f"Missing or empty license file: {details['licenseFile']}")
+    marketplace = repository_path(MARKETPLACE_FILE)
+    if not marketplace.is_file() or marketplace.read_text(encoding="utf-8") != marketplace_text(
+        catalog
+    ):
+        raise ValueError(f"{MARKETPLACE_FILE} is out of date; run update_skills.py --vendor")
+
+
+def branch_head_at(repository: str, branch: str, cutoff: datetime) -> str:
+    ref = urllib.parse.quote(f"refs/heads/{branch}", safe="")
+    url = f"{API}/repos/{repository}/activity?ref={ref}&per_page=100"
+    oldest = None
+    for page in json_pages(url, MAX_ACTIVITY_PAGES):
+        for entry in page:
+            if datetime.fromisoformat(entry["timestamp"]) <= cutoff:
+                return entry["after"]
+            oldest = entry
+    if oldest is None:
+        quoted = urllib.parse.quote(branch, safe="")
+        return json_request(f"{API}/repos/{repository}/commits/{quoted}")["sha"]
+    return oldest["before"]
 
 
 def latest_ref(repository: str, min_age_days: int = 0, now: datetime | None = None) -> str | None:
-    metadata = json_request(f"{API}/repos/{repository}")
-    branch = urllib.parse.quote(metadata["default_branch"], safe="")
+    branch = json_request(f"{API}/repos/{repository}")["default_branch"]
+    quoted = urllib.parse.quote(branch, safe="")
     if min_age_days:
         cutoff = (now or datetime.now(UTC)) - timedelta(days=min_age_days)
-        until = urllib.parse.quote(cutoff.strftime("%Y-%m-%dT%H:%M:%SZ"), safe="")
-        commits = json_request(
-            f"{API}/repos/{repository}/commits?sha={branch}&until={until}&per_page=1"
-        )
-        if not commits:
-            return None
-        sha = commits[0]["sha"]
+        sha = branch_head_at(repository, branch, cutoff)
     else:
-        sha = json_request(f"{API}/repos/{repository}/commits/{branch}")["sha"]
-    if not SHA_RE.fullmatch(sha):
+        sha = json_request(f"{API}/repos/{repository}/commits/{quoted}")["sha"]
+    if sha == ZERO_SHA:
+        return None
+    if not isinstance(sha, str) or not SHA_RE.fullmatch(sha):
         raise ValueError(f"{repository}: GitHub returned an invalid commit SHA")
+    if min_age_days:
+        comparison = json_request(f"{API}/repos/{repository}/compare/{sha}...{quoted}?per_page=1")
+        if comparison["status"] not in {"ahead", "identical"}:
+            return None
     return sha
 
 
@@ -372,14 +405,6 @@ def upstream_executables(tree: dict[str, Any], source_path: str) -> set[str]:
     }
 
 
-def is_script(path: str, data: bytes, executable: bool) -> bool:
-    return (
-        executable
-        or PurePosixPath(path).suffix.lower() in SCRIPT_SUFFIXES
-        or data.startswith(b"#!")
-    )
-
-
 def frontmatter(skill: bytes) -> str:
     text = skill.decode("utf-8")
     return text[4 : text.index("\n---\n", 4)]
@@ -406,20 +431,38 @@ def changed_settings(old: str, new: str, descriptive: set[str]) -> list[str]:
     )
 
 
-def shell_commands(skill: bytes) -> list[str]:
-    commands: list[str] = []
-    closing = None
-    for line in skill.decode("utf-8").splitlines():
-        if closing:
-            commands.append(line)
-            if closing.fullmatch(line):
-                closing = None
-        elif fence := SHELL_FENCE.match(line):
-            closing = re.compile(rf"\s*{re.escape(fence[1][0])}{{{len(fence[1])},}}\s*")
-            commands.append(line)
-        elif INLINE_SHELL.search(line):
-            commands.append(line)
-    return commands
+def safe_text(text: str) -> bool:
+    return "---" not in text and not any(
+        unicodedata.category(character) in {"Cc", "Cf", "Zl", "Zp"} and character != "\n"
+        for character in text
+    )
+
+
+def safe_scalar(value: str) -> bool:
+    if not value:
+        return False
+    if value[0] == '"':
+        return re.fullmatch(r'"(?:[^"\\]|\\["\\])*"', value) is not None
+    if value[0] == "'":
+        return re.fullmatch(r"'(?:[^']|'')*'", value) is not None
+    return (
+        value[0] not in PLAIN_START
+        and ": " not in value
+        and " #" not in value
+        and not value.endswith(":")
+    )
+
+
+def simple_description(front: str) -> bool:
+    lines = top_level_settings(front).get("description", [])
+    while lines and not lines[-1].strip():
+        lines = lines[:-1]
+    if not safe_text(front) or not lines or not lines[0].startswith("description:"):
+        return False
+    if BLOCK_DESCRIPTION.fullmatch(lines[0]):
+        body = lines[1:]
+        return bool(body) and all(not line or line.startswith(" ") for line in body)
+    return len(lines) == 1 and safe_scalar(lines[0].removeprefix("description:").strip())
 
 
 def review_reasons(
@@ -429,40 +472,82 @@ def review_reasons(
     old_executables: set[str],
     new_executables: set[str],
 ) -> list[str]:
-    reasons = []
-    for path, data in sorted(new_files.items()):
-        executable = path in new_executables
-        if old_files.get(path) == data and (path in old_executables) == executable:
-            continue
-        if any(part.startswith(".") for part in PurePosixPath(path).parts):
+    prefix = f"skills/{name}"
+    reasons: list[str] = []
+    changed = [
+        path
+        for path in sorted(old_files.keys() | new_files.keys())
+        if old_files.get(path) != new_files.get(path)
+        or (path in old_executables) != (path in new_executables)
+    ]
+    if not changed:
+        return reasons
+    for path in changed:
+        data, executable = new_files.get(path), path in new_executables
+        pure = PurePosixPath(path)
+        if any(part.startswith(".") for part in pure.parts):
+            reasons.append(f"{prefix}/{path}: adds, changes, or removes a hidden file")
+        elif pure.suffix.lower() not in AUTOMATIC_SUFFIXES:
             reasons.append(
-                f"skills/{name}/{path}: adds or changes a hidden file,"
-                " which agents can load as configuration"
+                f"{prefix}/{path}: adds, changes, or removes a file that is not Markdown"
+                " or plain text"
             )
-        elif is_script(path, data, executable):
-            reasons.append(f"skills/{name}/{path}: adds or changes a script or executable file")
+        elif executable or (data or b"").startswith(b"#!"):
+            reasons.append(f"{prefix}/{path}: adds or changes an executable file")
+        elif LICENSE_NAME.match(pure.name):
+            reasons.append(f"{prefix}/{path}: changes license text")
+        elif path != "SKILL.md" and path_key(pure.name) == "skill.md":
+            reasons.append(f"{prefix}/{path}: adds or changes a nested SKILL.md")
     old_skill, new_skill = old_files["SKILL.md"], new_files["SKILL.md"]
-    settings = changed_settings(
-        frontmatter(old_skill), frontmatter(new_skill), DESCRIPTIVE_FRONTMATTER
-    )
-    if settings:
+    old_front = frontmatter(old_skill)
+    if GRANTING_SETTINGS & top_level_settings(old_front).keys():
         reasons.append(
-            f"skills/{name}/SKILL.md: changes frontmatter settings: {', '.join(settings)}"
+            f"{prefix}: pre-approves tools or defines hooks, so every change needs review"
         )
-    if shell_commands(old_skill) != shell_commands(new_skill):
-        reasons.append(
-            f"skills/{name}/SKILL.md: adds or changes shell commands that run when the skill loads"
-        )
-    codex = changed_settings(
-        old_files.get("agents/openai.yaml", b"").decode("utf-8"),
-        new_files.get("agents/openai.yaml", b"").decode("utf-8"),
-        {"interface"},
-    )
-    if codex:
-        reasons.append(
-            f"skills/{name}/agents/openai.yaml: changes Codex settings: {', '.join(codex)}"
-        )
+    if old_skill != new_skill:
+        new_front = frontmatter(new_skill)
+        settings = changed_settings(old_front, new_front, {"description"})
+        if settings:
+            reasons.append(
+                f"{prefix}/SKILL.md: changes frontmatter settings: {', '.join(settings)}"
+            )
+        elif new_front != old_front and not simple_description(new_front):
+            reasons.append(
+                f"{prefix}/SKILL.md: changes the description in a form agents may parse differently"
+            )
+        if any(token in new_skill.decode("utf-8") for token in SHELL_SYNTAX):
+            reasons.append(
+                f"{prefix}/SKILL.md: contains shell commands that run when the skill loads"
+            )
     return reasons
+
+
+def skill_description(skill: bytes) -> str:
+    lines = top_level_settings(frontmatter(skill)).get("description", [""])
+    value = lines[0].partition(":")[2].strip()
+    if re.fullmatch(r"[>|][+-]?", value):
+        value = " ".join(lines[1:])
+    elif value.startswith('"'):
+        try:
+            value = json.loads(value)
+        except ValueError:
+            value = value.strip('"')
+    elif len(value) > 1 and value[0] == value[-1] == "'":
+        value = value[1:-1].replace("''", "'")
+    return " ".join(value.split())
+
+
+def marketplace_text(catalog: dict[str, Any], skills: dict[str, bytes] | None = None) -> str:
+    plugins = []
+    for name in sorted(catalog["skills"]):
+        skill = (skills or {}).get(name) or repository_path(f"skills/{name}/SKILL.md").read_bytes()
+        plugin: dict[str, Any] = {"name": name, "description": skill_description(skill)}
+        if source := catalog["skills"][name].get("source"):
+            if license_name := catalog["sources"].get(source, {}).get("license"):
+                plugin["license"] = license_name
+            plugin["repository"] = f"https://github.com/{source}"
+        plugins.append({**plugin, "source": "./", "skills": [f"./skills/{name}"]})
+    return json.dumps({**MARKETPLACE, "plugins": plugins}, indent=2) + "\n"
 
 
 def read_source(repository: str, ref: str, path: str) -> bytes:
@@ -579,6 +664,7 @@ def vendor_catalog(catalog: dict[str, Any]) -> None:
     with tempfile.TemporaryDirectory(prefix="skills-vendor-", dir=ROOT) as temporary:
         staging = Path(temporary)
         destinations: list[Path] = []
+        rendered: dict[str, bytes] = {}
         for name, skill in catalog["skills"].items():
             if skill.get("local") is True:
                 validate_skill(name, current_files(name))
@@ -598,6 +684,7 @@ def vendor_catalog(catalog: dict[str, Any]) -> None:
             )
             stage_skill(staging / "skills" / name, skill, source["ref"], files, tree_cache)
             destinations.append(Path("skills") / name)
+            rendered[name] = files["SKILL.md"]
             print(f"Staged skills/{name}", flush=True)
         for repository, source in catalog["sources"].items():
             relative = Path(safe_relative_path(source["licenseFile"]).as_posix())
@@ -609,6 +696,11 @@ def vendor_catalog(catalog: dict[str, Any]) -> None:
             destinations.append(relative)
         (staging / "catalog.json").write_text(catalog_text(catalog), encoding="utf-8")
         destinations.append(Path("catalog.json"))
+        (staging / MARKETPLACE_FILE).parent.mkdir(parents=True, exist_ok=True)
+        (staging / MARKETPLACE_FILE).write_text(
+            marketplace_text(catalog, rendered), encoding="utf-8"
+        )
+        destinations.append(Path(MARKETPLACE_FILE))
         catalog_path = repository_path("catalog.json")
         if (
             catalog_path.exists()
@@ -728,6 +820,10 @@ def update_catalog(
             target.write_bytes(data)
         catalog_temp = temp_root / "catalog.json"
         catalog_temp.write_text(catalog_text(catalog), encoding="utf-8")
+        marketplace_temp = temp_root / MARKETPLACE_FILE
+        marketplace_temp.parent.mkdir(parents=True)
+        skills = {name: files["SKILL.md"] for name, files in skill_updates.items()}
+        marketplace_temp.write_text(marketplace_text(catalog, skills), encoding="utf-8")
 
         staged: list[tuple[Path, Path]] = [
             (ROOT / "skills" / name, temp_root / "skills" / name) for name in skill_updates
@@ -740,6 +836,7 @@ def update_catalog(
             for path in license_updates
         )
         staged.append((CATALOG_PATH, catalog_temp))
+        staged.append((ROOT / MARKETPLACE_FILE, marketplace_temp))
         backup_root = temp_root / "backups"
         for index, (destination, replacement) in enumerate(staged):
             destination = repository_path(destination.relative_to(ROOT).as_posix())
