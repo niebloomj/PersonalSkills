@@ -190,6 +190,26 @@ class SyncTests(unittest.TestCase):
             problems = self.module().audit(self.repo, self.home)
         self.assertIn(f"link required: {projected}", problems)
 
+    def test_opencode_skills_folder_can_be_switched_off(self):
+        config_dir = self.home / ".hubspot/opencode/config"
+        config_dir.mkdir(parents=True)
+        config = self.home / ".local/state/personal-skills/config.json"
+        config.parent.mkdir(parents=True)
+        config.write_text(json.dumps({"openCodeSkillsRoot": False}))
+        with patch.dict(os.environ, {"OPENCODE_CONFIG_DIR": str(config_dir)}):
+            self.module().synchronize(self.repo, self.home, apply=True)
+        self.assertFalse((config_dir / "skills").exists())
+        self.assertIs(json.loads(config.read_text())["openCodeSkillsRoot"], False)
+
+    def test_relative_opencode_config_dir_is_ignored(self):
+        (self.home / "relative-config").mkdir()
+        working_directory = os.getcwd()
+        os.chdir(self.home)
+        self.addCleanup(os.chdir, working_directory)
+        with patch.dict(os.environ, {"OPENCODE_CONFIG_DIR": "relative-config"}):
+            self.module().synchronize(self.repo, self.home, apply=True)
+        self.assertFalse((self.home / "relative-config/skills").exists())
+
     def test_removed_opencode_config_folder_is_not_recreated(self):
         config_dir = self.home / ".hubspot/opencode/config"
         config_dir.mkdir(parents=True)

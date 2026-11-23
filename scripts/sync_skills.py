@@ -51,9 +51,14 @@ def configuration(
     )
     config["retired"] = sorted(set(config.get("retired", [])) | set(retired or []))
     environment = os.environ.get("OPENCODE_CONFIG_DIR")
-    if environment:
-        candidate = Path(environment).expanduser().absolute() / "skills"
-        if candidate.is_relative_to(home.absolute()) and candidate.parent.is_dir():
+    if environment and config.get("openCodeSkillsRoot") is not False:
+        directory = Path(environment).expanduser()
+        candidate = directory / "skills"
+        if (
+            directory.is_absolute()
+            and candidate.is_relative_to(home.absolute())
+            and directory.is_dir()
+        ):
             config["openCodeSkillsRoot"] = str(candidate)
     return config
 
@@ -68,7 +73,7 @@ def skill_roots(home: Path, config: dict[str, Any]) -> list[Path]:
             raise ValueError(f"Extra skill roots must be absolute: {root}")
         roots.add(root)
     recorded = config.get("openCodeSkillsRoot")
-    if recorded:
+    if isinstance(recorded, str) and recorded:
         candidate = Path(recorded)
         if (
             candidate.is_absolute()
