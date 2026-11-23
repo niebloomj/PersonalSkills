@@ -126,10 +126,12 @@ approval, scope, and delegation rules still take precedence over imported workfl
 ## Add your own skill
 
 Create `skills/my-workflow/SKILL.md` with `name: my-workflow` and a useful
-`description` in YAML frontmatter. Add this catalog entry:
+`description` in YAML frontmatter. Add this entry under `skills` in `catalog.json`:
 
 ```json
-"my-workflow": {"local": true}
+"my-workflow": {
+  "local": true
+}
 ```
 
 Locally authored skills have no invented upstream pin and are never replaced by
@@ -152,6 +154,10 @@ To import new third-party entries after recording their source, commit, path,
 and license, use `python3 scripts/update_skills.py --vendor`. It stages all
 downloads before replacement, preserves executable companions, and fails closed
 on missing paths, renamed skills, unsafe file types, or oversized content.
+
+`catalog.json` is tool-written. The updater and `--vendor` write it with sorted
+keys and two-space indentation, and the tests reject any other layout, so update
+PRs change only the pins that moved. After editing it by hand, run `--vendor`.
 
 Renames (`upstreamName`), explicit invocation (`manual`), Markdown reference
 rewrites (`replaceMarkdown`), and optional gallery exclusions (`exclude`) are

@@ -1,5 +1,7 @@
+import difflib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -27,6 +29,72 @@ class CatalogTests(unittest.TestCase):
             set(catalog["skills"]),
             {path.name for path in (Path(__file__).resolve().parents[1] / "skills").iterdir()},
         )
+
+    def test_committed_catalog_uses_the_tool_written_layout(self):
+        text = update_skills.CATALOG_PATH.read_text(encoding="utf-8")
+        self.assertEqual(
+            text,
+            update_skills.catalog_text(json.loads(text)),
+            "catalog.json is tool-written; run `python3 scripts/update_skills.py --vendor`",
+        )
+
+    def test_upstream_update_changes_only_the_moved_pin(self):
+        repository = Path(__file__).resolve().parents[1]
+        moved, skill, new_ref = "vercel-labs/skills", "find-skills", "b" * 40
+        rendered = {"SKILL.md": b"---\nname: find-skills\ndescription: Updated upstream.\n---\n"}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog_path = root / "catalog.json"
+            shutil.copy2(repository / "catalog.json", catalog_path)
+            shutil.copytree(repository / "licenses", root / "licenses")
+            (root / "skills" / skill).mkdir(parents=True)
+            before = catalog_path.read_text(encoding="utf-8")
+            sources = json.loads(before)["sources"]
+            licenses = {
+                source: (root / details["licenseFile"]).read_bytes()
+                for source, details in sources.items()
+            }
+            with (
+                patch.object(update_skills, "ROOT", root),
+                patch.object(update_skills, "CATALOG_PATH", catalog_path),
+                patch.object(
+                    update_skills,
+                    "latest_ref",
+                    side_effect=lambda source: (
+                        new_ref if source == moved else sources[source]["ref"]
+                    ),
+                ),
+                patch.object(update_skills, "fetch_skill", return_value={}),
+                patch.object(
+                    update_skills,
+                    "render_skill",
+                    side_effect=lambda name, entry, files: (
+                        rendered if name == skill else {"SKILL.md": b"unchanged"}
+                    ),
+                ),
+                patch.object(
+                    update_skills, "current_files", return_value={"SKILL.md": b"unchanged"}
+                ),
+                patch.object(
+                    update_skills,
+                    "read_source",
+                    side_effect=lambda source, ref, path: licenses[source],
+                ),
+            ):
+                changed = update_skills.update_catalog(update_skills.load_catalog())
+            after = catalog_path.read_text(encoding="utf-8")
+            self.assertEqual(changed, [skill])
+            self.assertEqual(
+                [
+                    line
+                    for line in difflib.ndiff(before.splitlines(), after.splitlines())
+                    if line.startswith(("- ", "+ "))
+                ],
+                [f'-       "ref": "{sources[moved]["ref"]}"', f'+       "ref": "{new_ref}"'],
+            )
+            self.assertEqual(
+                (root / "skills" / skill / "SKILL.md").read_bytes(), rendered["SKILL.md"]
+            )
 
     def test_source_paths_reject_traversal_and_absolute_paths(self):
         for path in ("../outside", "/absolute/path", "skills/../../outside", "skills\\..\\outside"):
@@ -199,6 +267,48 @@ class CatalogTests(unittest.TestCase):
                 (root / "skills/sentry-code-review/SKILL.md").read_bytes(),
             )
             self.assertEqual((root / "licenses/example-LICENSE").read_bytes(), b"License notice.\n")
+
+    def test_vendor_rewrites_catalog_in_the_tool_layout(self):
+        catalog = {
+            "schemaVersion": 1,
+            "skills": {"helper": {"upstreamPath": "skills/helper", "source": "example/skills"}},
+            "sources": {
+                "example/skills": {
+                    "ref": "a" * 40,
+                    "licensePath": "LICENSE",
+                    "licenseFile": "licenses/example-LICENSE",
+                }
+            },
+        }
+        files = {"SKILL.md": b"---\nname: helper\ndescription: Run the helper.\n---\n"}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "catalog.json").write_text(json.dumps(catalog), encoding="utf-8")
+            with (
+                patch.object(update_skills, "ROOT", root),
+                patch.object(update_skills, "fetch_skill", return_value=files),
+                patch.object(update_skills, "read_source", return_value=b"License.\n"),
+            ):
+                update_skills.vendor_catalog(catalog)
+            self.assertEqual(
+                (root / "catalog.json").read_text(encoding="utf-8"),
+                "{\n"
+                '  "schemaVersion": 1,\n'
+                '  "skills": {\n'
+                '    "helper": {\n'
+                '      "source": "example/skills",\n'
+                '      "upstreamPath": "skills/helper"\n'
+                "    }\n"
+                "  },\n"
+                '  "sources": {\n'
+                '    "example/skills": {\n'
+                '      "licenseFile": "licenses/example-LICENSE",\n'
+                '      "licensePath": "LICENSE",\n'
+                f'      "ref": "{"a" * 40}"\n'
+                "    }\n"
+                "  }\n"
+                "}\n",
+            )
 
     def test_import_excludes_nonessential_gallery_before_downloading(self):
         tree = {

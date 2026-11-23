@@ -203,6 +203,10 @@ def render_skill(name: str, entry: dict[str, Any], files: dict[str, bytes]) -> d
     return rendered
 
 
+def catalog_text(catalog: dict[str, Any]) -> str:
+    return json.dumps(catalog, indent=2, sort_keys=True) + "\n"
+
+
 def validate_previous_names(name: str, entry: dict[str, Any]) -> list[str]:
     aliases = entry.get("previousNames", [])
     if not isinstance(aliases, list) or any(
@@ -442,6 +446,8 @@ def vendor_catalog(catalog: dict[str, Any]) -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
             destinations.append(relative)
+        (staging / "catalog.json").write_text(catalog_text(catalog), encoding="utf-8")
+        destinations.append(Path("catalog.json"))
         try:
             for index, relative in enumerate(destinations):
                 destination = repository_path(relative.as_posix())
@@ -524,9 +530,7 @@ def update_catalog(catalog: dict[str, Any]) -> list[str]:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
         catalog_temp = temp_root / "catalog.json"
-        catalog_temp.write_text(
-            json.dumps(catalog, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-        )
+        catalog_temp.write_text(catalog_text(catalog), encoding="utf-8")
 
         staged: list[tuple[Path, Path]] = [
             (ROOT / "skills" / name, temp_root / "skills" / name) for name in skill_updates
