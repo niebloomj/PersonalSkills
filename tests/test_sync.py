@@ -83,6 +83,7 @@ class SyncTests(unittest.TestCase):
     def test_every_retired_catalog_id_is_removed_from_existing_installations(self):
         repository = Path(__file__).resolve().parents[1]
         removed = tuple(json.loads((repository / "catalog.json").read_text())["retired"])
+        self.assertTrue(removed)
         roots = [
             self.home / relative
             for relative in (
@@ -230,9 +231,11 @@ class SyncTests(unittest.TestCase):
         with (
             patch.object(module, "ROOT", self.repo),
             patch.object(sys, "argv", arguments),
-            redirect_stdout(io.StringIO()),
+            redirect_stdout(io.StringIO()) as output,
         ):
             self.assertEqual(module.main(), 1)
+        self.assertIn(f"Unmanaged skill: {unknown}", output.getvalue())
+        self.assertIn("1 problem(s), 0 retained-link warning(s)", output.getvalue())
         shutil.rmtree(unknown)
         retained = self.home / ".claude/skills/offline-experiment"
         retained.symlink_to(self.home / "offline-storage")

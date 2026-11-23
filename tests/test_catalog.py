@@ -40,16 +40,26 @@ class CatalogTests(unittest.TestCase):
 
     def test_upstream_update_changes_only_the_moved_pin(self):
         repository = Path(__file__).resolve().parents[1]
-        moved, skill, new_ref = "vercel-labs/skills", "find-skills", "b" * 40
-        rendered = {"SKILL.md": b"---\nname: find-skills\ndescription: Updated upstream.\n---\n"}
+        new_ref = "b" * 40
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             catalog_path = root / "catalog.json"
             shutil.copy2(repository / "catalog.json", catalog_path)
             shutil.copytree(repository / "licenses", root / "licenses")
-            (root / "skills" / skill).mkdir(parents=True)
             before = catalog_path.read_text(encoding="utf-8")
-            sources = json.loads(before)["sources"]
+            catalog = json.loads(before)
+            sources = catalog["sources"]
+            moved = sorted(sources)[0]
+            moved_skills = sorted(
+                name for name, entry in catalog["skills"].items() if entry.get("source") == moved
+            )
+            self.assertTrue(moved_skills)
+            rendered = {
+                name: {"SKILL.md": f"---\nname: {name}\ndescription: Updated.\n---\n".encode()}
+                for name in moved_skills
+            }
+            for name in moved_skills:
+                (root / "skills" / name).mkdir(parents=True)
             licenses = {
                 source: (root / details["licenseFile"]).read_bytes()
                 for source, details in sources.items()
@@ -68,8 +78,8 @@ class CatalogTests(unittest.TestCase):
                 patch.object(
                     update_skills,
                     "render_skill",
-                    side_effect=lambda name, entry, files: (
-                        rendered if name == skill else {"SKILL.md": b"unchanged"}
+                    side_effect=lambda name, entry, files: rendered.get(
+                        name, {"SKILL.md": b"unchanged"}
                     ),
                 ),
                 patch.object(
@@ -83,7 +93,7 @@ class CatalogTests(unittest.TestCase):
             ):
                 changed = update_skills.update_catalog(update_skills.load_catalog())
             after = catalog_path.read_text(encoding="utf-8")
-            self.assertEqual(changed, [skill])
+            self.assertEqual(changed, moved_skills)
             self.assertEqual(
                 [
                     line
@@ -92,9 +102,10 @@ class CatalogTests(unittest.TestCase):
                 ],
                 [f'-       "ref": "{sources[moved]["ref"]}"', f'+       "ref": "{new_ref}"'],
             )
-            self.assertEqual(
-                (root / "skills" / skill / "SKILL.md").read_bytes(), rendered["SKILL.md"]
-            )
+            for name in moved_skills:
+                self.assertEqual(
+                    (root / "skills" / name / "SKILL.md").read_bytes(), rendered[name]["SKILL.md"]
+                )
 
     def test_source_paths_reject_traversal_and_absolute_paths(self):
         for path in ("../outside", "/absolute/path", "skills/../../outside", "skills\\..\\outside"):
