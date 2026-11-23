@@ -30,6 +30,7 @@ AGENTS = (
     (".cursor", ".cursor/skills"),
     (".cc-switch/skills", ".cc-switch/skills"),
 )
+CC_SWITCH_CHANGES = ("updated", "added", "retired", "settingsChanged", "repositoriesDisabled")
 
 
 def read_json(path: Path, default: Any) -> Any:
@@ -412,10 +413,7 @@ def audit(repository: Path, home: Path, *, external_locks: list[Path] | None = N
         import cc_switch_skills
 
         metadata = cc_switch_skills.migrate(repository, home, apply=False)
-        if any(
-            metadata.get(key)
-            for key in ("updated", "added", "retired", "settingsChanged", "repositoriesDisabled")
-        ):
+        if any(metadata.get(key) for key in CC_SWITCH_CHANGES):
             problems.append("CC-Switch skill metadata or storage settings require synchronization")
     return problems
 
