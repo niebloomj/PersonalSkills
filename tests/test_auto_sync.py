@@ -1,5 +1,6 @@
 import io
 import os
+import plistlib
 import subprocess
 import sys
 import tempfile
@@ -252,6 +253,88 @@ class FreshHomeTests(Isolated):
         code, output = captured(auto_sync.run, REPOSITORY, self.home, pull=False)
         self.assertEqual(code, 0, output)
         self.assertIn("already match", output)
+
+
+class AgentTests(Isolated):
+    def setUp(self):
+        super().setUp()
+        self.calls = []
+        self.patch(
+            auto_sync,
+            "launchctl",
+            lambda *arguments: (
+                self.calls.append(arguments) or subprocess.CompletedProcess(arguments, 0, "", "")
+            ),
+        )
+        self.patch(auto_sync, "interpreter", lambda: "/opt/homebrew/bin/python3")
+        self.agent = self.home / "Library/LaunchAgents" / f"{auto_sync.LABEL}.plist"
+        self.domain = f"gui/{os.getuid()}"
+
+    def test_install_previews_by_default(self):
+        code, output = captured(auto_sync.install, REPOSITORY, self.home, apply=False)
+        self.assertEqual((code, self.calls), (0, []))
+        self.assertFalse(self.agent.exists())
+        self.assertIn("--apply", output)
+
+    def test_install_runs_now_at_login_and_every_six_hours(self):
+        code, _ = captured(auto_sync.install, REPOSITORY, self.home, apply=True)
+        self.assertEqual(code, 0)
+        definition = plistlib.loads(self.agent.read_bytes())
+        self.assertEqual(
+            definition["ProgramArguments"],
+            [
+                "/opt/homebrew/bin/python3",
+                str(REPOSITORY / "scripts/auto_sync.py"),
+                "run",
+                "--home",
+                str(self.home),
+            ],
+        )
+        self.assertEqual((definition["RunAtLoad"], definition["StartInterval"]), (True, 21600))
+        log = str(self.home / ".local/state/personal-skills/auto-sync.log")
+        self.assertEqual(
+            (definition["StandardOutPath"], definition["StandardErrorPath"]), (log, log)
+        )
+        self.assertTrue((self.home / ".local/state/personal-skills").is_dir())
+        self.assertEqual(self.calls[-1], ("bootstrap", self.domain, str(self.agent)))
+
+    def test_failed_bootstrap_is_reported(self):
+        self.patch(
+            auto_sync,
+            "launchctl",
+            lambda *arguments: subprocess.CompletedProcess(arguments, 5, "", "Input/output error"),
+        )
+        with self.assertRaisesRegex(ValueError, "Input/output error"):
+            captured(auto_sync.install, REPOSITORY, self.home, apply=True)
+
+    def test_uninstall_previews_by_default(self):
+        captured(auto_sync.install, REPOSITORY, self.home, apply=True)
+        self.calls.clear()
+        code, output = captured(auto_sync.uninstall, self.home, apply=False)
+        self.assertEqual((code, self.calls), (0, []))
+        self.assertTrue(self.agent.exists())
+        self.assertIn("--apply", output)
+
+    def test_uninstall_unloads_and_removes_the_agent(self):
+        captured(auto_sync.install, REPOSITORY, self.home, apply=True)
+        self.calls.clear()
+        code, _ = captured(auto_sync.uninstall, self.home, apply=True)
+        self.assertEqual((code, self.calls), (0, [("bootout", f"{self.domain}/{auto_sync.LABEL}")]))
+        self.assertFalse(self.agent.exists())
+
+
+class InterpreterTests(Isolated):
+    def test_the_stable_python3_alias_is_preferred_when_it_is_this_interpreter(self):
+        alias = self.root / "python3"
+        alias.symlink_to(sys.executable)
+        with patch.object(auto_sync.shutil, "which", return_value=str(alias)):
+            self.assertEqual(auto_sync.interpreter(), str(alias))
+
+    def test_a_different_python3_on_path_is_not_used(self):
+        other = self.root / "python3"
+        other.write_text("#!/bin/sh\n")
+        with patch.object(auto_sync.shutil, "which", return_value=str(other)):
+            self.assertEqual(auto_sync.interpreter(), sys.executable)
 
 
 if __name__ == "__main__":
