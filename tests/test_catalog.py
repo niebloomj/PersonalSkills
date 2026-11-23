@@ -310,6 +310,39 @@ class CatalogTests(unittest.TestCase):
                 "}\n",
             )
 
+    def test_vendor_refuses_to_overwrite_a_concurrent_catalog_edit(self):
+        catalog = {
+            "schemaVersion": 1,
+            "skills": {"helper": {"source": "example/skills", "upstreamPath": "skills/helper"}},
+            "sources": {
+                "example/skills": {
+                    "ref": "a" * 40,
+                    "licensePath": "LICENSE",
+                    "licenseFile": "licenses/example-LICENSE",
+                }
+            },
+        }
+        files = {"SKILL.md": b"---\nname: helper\ndescription: Run the helper.\n---\n"}
+        edited = '{"edited": "while vendoring"}\n'
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog_path = root / "catalog.json"
+            catalog_path.write_text(json.dumps(catalog), encoding="utf-8")
+
+            def fetch(*arguments, **keywords):
+                catalog_path.write_text(edited, encoding="utf-8")
+                return files
+
+            with (
+                patch.object(update_skills, "ROOT", root),
+                patch.object(update_skills, "fetch_skill", side_effect=fetch),
+                patch.object(update_skills, "read_source", return_value=b"License.\n"),
+                self.assertRaisesRegex(ValueError, "catalog.json changed"),
+            ):
+                update_skills.vendor_catalog(catalog)
+            self.assertEqual(catalog_path.read_text(encoding="utf-8"), edited)
+            self.assertFalse((root / "skills/helper").exists())
+
     def test_import_excludes_nonessential_gallery_before_downloading(self):
         tree = {
             "tree": [

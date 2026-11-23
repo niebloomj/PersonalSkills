@@ -448,6 +448,12 @@ def vendor_catalog(catalog: dict[str, Any]) -> None:
             destinations.append(relative)
         (staging / "catalog.json").write_text(catalog_text(catalog), encoding="utf-8")
         destinations.append(Path("catalog.json"))
+        catalog_path = repository_path("catalog.json")
+        if (
+            catalog_path.exists()
+            and json.loads(catalog_path.read_text(encoding="utf-8")) != catalog
+        ):
+            raise ValueError("catalog.json changed while vendoring; rerun --vendor")
         try:
             for index, relative in enumerate(destinations):
                 destination = repository_path(relative.as_posix())
