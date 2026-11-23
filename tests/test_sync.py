@@ -373,7 +373,7 @@ class SyncTests(unittest.TestCase):
         self.assertIn("Claude-specific content.", (projected / "SKILL.md").read_text())
         self.assertEqual(self.module().audit(self.repo, self.home, external_locks=[lock]), [])
 
-    def test_unsupported_codex_plugin_layout_does_not_block_sync(self):
+    def unsupported_codex_config(self):
         import agent_plugins
 
         for name in agent_plugins.SUPERPOWERS:
@@ -381,8 +381,12 @@ class SyncTests(unittest.TestCase):
             self.skill(self.repo / "skills" / name, name, "Workflow.")
         self.write_catalog()
         config = self.home / ".codex/config.toml"
-        original = 'plugins."superpowers@example".enabled = true\n'
-        config.write_text(original)
+        config.write_text('plugins."superpowers@example".enabled = true\n')
+        return config
+
+    def test_unsupported_codex_plugin_layout_does_not_block_sync(self):
+        config = self.unsupported_codex_config()
+        original = config.read_text()
         self.module().synchronize(self.repo, self.home, apply=True)
         self.assertTrue((self.home / ".codex/skills/brainstorming").is_symlink())
         self.assertEqual(config.read_text(), original)
@@ -391,6 +395,18 @@ class SyncTests(unittest.TestCase):
             any(str(config) in problem and "Cannot safely edit" in problem for problem in problems),
             problems,
         )
+
+    def test_skipped_codex_edit_is_not_counted_as_a_change(self):
+        self.unsupported_codex_config()
+        module = self.module()
+        module.synchronize(self.repo, self.home, apply=True)
+        with (
+            patch.object(module, "ROOT", self.repo),
+            patch.object(sys, "argv", ["sync_skills.py", "--home", str(self.home)]),
+            redirect_stdout(io.StringIO()) as output,
+        ):
+            self.assertEqual(module.main(), 0)
+        self.assertIn("Preview: 0 action(s), 1 skipped.", output.getvalue())
 
     def test_rollback_preserves_a_concurrent_config_edit(self):
         module = self.module()

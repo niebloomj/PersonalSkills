@@ -19,7 +19,8 @@ python3 scripts/sync_skills.py --audit
 
 The first command previews changes without modifying installed skills or profile data. `--apply` backs up
 existing copies and retired entries before replacing them. `--audit` exits
-nonzero for unmanaged, divergent, retired, or unexpectedly nested global skills.
+nonzero for unmanaged, divergent, retired, or unexpectedly nested global skills,
+and for a skipped Codex plugin edit.
 Re-running an unchanged installation is a no-op.
 
 The installer creates one definition per personal skill:
@@ -112,7 +113,8 @@ contain private configuration and must never be committed or shared.
   skill references are unqualified so no `superpowers:` plugin namespace is
   required. The duplicate Codex Superpowers plugin is disabled only when all
   fourteen replacements are present; native runtime plugins are untouched. If the
-  Codex config cannot be edited safely, sync leaves it unchanged and audit reports it.
+  Codex config cannot be edited safely, sync leaves it unchanged, reports it as
+  skipped, and audit fails until it is resolved.
 - `grill-me` is retired in favor of `grilling`.
 - Trail of Bits retired `ask-questions-if-underspecified`; its obsolete copy is
   removed rather than frozen into this collection.

@@ -498,7 +498,12 @@ def main() -> int:
                 + (f" -> {action['target']}" if "target" in action else "")
                 + (f" ({action['reason']})" if "reason" in action else "")
             )
-        print(f"{'Applied' if arguments.apply else 'Preview'}: {len(result['actions'])} action(s).")
+        changes = [action for action in result["actions"] if action["kind"] != "skipped"]
+        skipped = len(result["actions"]) - len(changes)
+        print(
+            f"{'Applied' if arguments.apply else 'Preview'}: {len(changes)} action(s)"
+            + (f", {skipped} skipped." if skipped else ".")
+        )
         if result["backup"]:
             print(f"Backup: {result['backup']}")
         if result["ccSwitch"] is not None:
