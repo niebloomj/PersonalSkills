@@ -90,7 +90,9 @@ class CatalogTests(unittest.TestCase):
                     ),
                 ),
                 patch.object(
-                    update_skills, "current_files", return_value={"SKILL.md": b"unchanged"}
+                    update_skills,
+                    "current_files",
+                    return_value={"SKILL.md": b"---\nname: old\ndescription: Old.\n---\n"},
                 ),
                 patch.object(
                     update_skills,

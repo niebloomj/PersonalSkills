@@ -13,8 +13,8 @@ import update_skills
 OLD, NEW = "a" * 40, "b" * 40
 
 
-def skill_text(name, description="Write things.", extra=""):
-    return f"---\nname: {name}\ndescription: {description}\n{extra}---\n\nBody.\n".encode()
+def skill_text(name, description="Write things.", extra="", body="Body.\n"):
+    return f"---\nname: {name}\ndescription: {description}\n{extra}---\n\n{body}".encode()
 
 
 class LatestRefTests(unittest.TestCase):
@@ -154,15 +154,65 @@ class UpstreamUpdateTests(unittest.TestCase):
             report["review"]["example/docs"]["reasons"], ["example/docs: license text changed"]
         )
 
-    def test_invocation_changes_wait_for_review(self):
+    def held_for(self, *reasons):
+        report = self.update("clean")
+        self.assertEqual(report["written"], [])
+        self.assertEqual(report["review"]["example/docs"]["reasons"], list(reasons))
+
+    def test_frontmatter_settings_wait_for_review(self):
+        for extra, setting in (
+            ("user-invocable: false\n", "user-invocable"),
+            ("allowed-tools: Bash\n", "allowed-tools"),
+            ("hooks:\n  Stop:\n    - hooks:\n        - type: command\n", "hooks"),
+            ('"hooks": {}\n', "hooks"),
+        ):
+            with self.subTest(setting=extra):
+                self.upstream["docs"]["SKILL.md"] = skill_text("docs", extra=extra)
+                self.held_for(f"skills/docs/SKILL.md: changes frontmatter settings: {setting}")
+
+    def test_manual_invocation_waits_for_review_on_both_agents(self):
         self.upstream["docs"]["SKILL.md"] = skill_text(
             "docs", extra="disable-model-invocation: true\n"
         )
+        self.held_for(
+            "skills/docs/SKILL.md: changes frontmatter settings: disable-model-invocation",
+            "skills/docs/agents/openai.yaml: changes Codex settings: policy",
+        )
+
+    def test_descriptive_frontmatter_changes_merge_automatically(self):
+        self.upstream["docs"]["SKILL.md"] = skill_text(
+            "docs", "Write better things.", extra="license: MIT\nmetadata:\n  version: 2\n"
+        )
         report = self.update("clean")
-        self.assertEqual(report["written"], [])
-        self.assertEqual(
-            report["review"]["example/docs"]["reasons"],
-            ["skills/docs: changes whether the skill runs automatically or only when invoked"],
+        self.assertEqual(report["review"], {})
+        self.assertEqual(report["written"], ["example/docs"])
+
+    def test_shell_commands_wait_for_review(self):
+        for body in ("Status: !`git status`\n", "````!\ngit status\n````\n"):
+            with self.subTest(body=body):
+                self.upstream["docs"]["SKILL.md"] = skill_text("docs", body=body)
+                self.held_for(
+                    "skills/docs/SKILL.md: adds or changes shell commands that run"
+                    " when the skill loads"
+                )
+
+    def test_codex_settings_wait_for_review(self):
+        self.upstream["docs"]["agents/openai.yaml"] = (
+            b"policy:\n  allow_implicit_invocation: true\n"
+        )
+        self.held_for("skills/docs/agents/openai.yaml: changes Codex settings: policy")
+
+    def test_codex_display_text_merges_automatically(self):
+        self.upstream["docs"]["agents/openai.yaml"] = b'interface:\n  display_name: "Docs"\n'
+        report = self.update("clean")
+        self.assertEqual(report["review"], {})
+        self.assertEqual(report["written"], ["example/docs"])
+
+    def test_hidden_files_wait_for_review(self):
+        self.upstream["docs"][".claude-plugin/plugin.json"] = b'{"name": "docs"}\n'
+        self.held_for(
+            "skills/docs/.claude-plugin/plugin.json: adds or changes a hidden file,"
+            " which agents can load as configuration"
         )
 
     def test_pins_never_move_backwards(self):

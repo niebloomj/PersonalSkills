@@ -37,6 +37,21 @@ SCRIPT_SUFFIXES = {
     ".ts",
     ".zsh",
 }
+DESCRIPTIVE_FRONTMATTER = {
+    "argument-hint",
+    "compatibility",
+    "description",
+    "displayName",
+    "emoji",
+    "homepage",
+    "license",
+    "metadata",
+    "name",
+    "version",
+    "when_to_use",
+}
+SHELL_FENCE = re.compile(r"^\s*(`{3,}|~{3,})!")
+INLINE_SHELL = re.compile(r"(?:^|\s)!`")
 
 
 def request(url: str) -> bytes:
@@ -365,13 +380,46 @@ def is_script(path: str, data: bytes, executable: bool) -> bool:
     )
 
 
-def invocation_policy(files: dict[str, bytes]) -> tuple[bool, bool]:
-    frontmatter = files["SKILL.md"].decode("utf-8").split("\n---\n", 1)[0]
-    codex = files.get("agents/openai.yaml", b"").decode("utf-8")
-    return (
-        bool(re.search(r"(?m)^disable-model-invocation:[ \t]*true[ \t]*$", frontmatter)),
-        bool(re.search(r"(?m)^[ \t]+allow_implicit_invocation:[ \t]*false\b", codex)),
+def frontmatter(skill: bytes) -> str:
+    text = skill.decode("utf-8")
+    return text[4 : text.index("\n---\n", 4)]
+
+
+def top_level_settings(text: str) -> dict[str, list[str]]:
+    settings: dict[str, list[str]] = {}
+    key = ""
+    for line in text.splitlines():
+        if line.startswith("#"):
+            continue
+        if line and not line[0].isspace() and not line.startswith("-"):
+            key = line.split(":", 1)[0].strip().strip("\"'")
+        settings.setdefault(key, []).append(line)
+    return settings
+
+
+def changed_settings(old: str, new: str, descriptive: set[str]) -> list[str]:
+    before, after = top_level_settings(old), top_level_settings(new)
+    return sorted(
+        key
+        for key in before.keys() | after.keys()
+        if key not in descriptive and before.get(key) != after.get(key)
     )
+
+
+def shell_commands(skill: bytes) -> list[str]:
+    commands: list[str] = []
+    closing = None
+    for line in skill.decode("utf-8").splitlines():
+        if closing:
+            commands.append(line)
+            if closing.fullmatch(line):
+                closing = None
+        elif fence := SHELL_FENCE.match(line):
+            closing = re.compile(rf"\s*{re.escape(fence[1][0])}{{{len(fence[1])},}}\s*")
+            commands.append(line)
+        elif INLINE_SHELL.search(line):
+            commands.append(line)
+    return commands
 
 
 def review_reasons(
@@ -381,15 +429,38 @@ def review_reasons(
     old_executables: set[str],
     new_executables: set[str],
 ) -> list[str]:
-    reasons = [
-        f"skills/{name}/{path}: adds or changes a script or executable file"
-        for path, data in sorted(new_files.items())
-        if (old_files.get(path) != data or (path in old_executables) != (path in new_executables))
-        and is_script(path, data, path in new_executables)
-    ]
-    if invocation_policy(old_files) != invocation_policy(new_files):
+    reasons = []
+    for path, data in sorted(new_files.items()):
+        executable = path in new_executables
+        if old_files.get(path) == data and (path in old_executables) == executable:
+            continue
+        if any(part.startswith(".") for part in PurePosixPath(path).parts):
+            reasons.append(
+                f"skills/{name}/{path}: adds or changes a hidden file,"
+                " which agents can load as configuration"
+            )
+        elif is_script(path, data, executable):
+            reasons.append(f"skills/{name}/{path}: adds or changes a script or executable file")
+    old_skill, new_skill = old_files["SKILL.md"], new_files["SKILL.md"]
+    settings = changed_settings(
+        frontmatter(old_skill), frontmatter(new_skill), DESCRIPTIVE_FRONTMATTER
+    )
+    if settings:
         reasons.append(
-            f"skills/{name}: changes whether the skill runs automatically or only when invoked"
+            f"skills/{name}/SKILL.md: changes frontmatter settings: {', '.join(settings)}"
+        )
+    if shell_commands(old_skill) != shell_commands(new_skill):
+        reasons.append(
+            f"skills/{name}/SKILL.md: adds or changes shell commands that run when the skill loads"
+        )
+    codex = changed_settings(
+        old_files.get("agents/openai.yaml", b"").decode("utf-8"),
+        new_files.get("agents/openai.yaml", b"").decode("utf-8"),
+        {"interface"},
+    )
+    if codex:
+        reasons.append(
+            f"skills/{name}/agents/openai.yaml: changes Codex settings: {', '.join(codex)}"
         )
     return reasons
 
