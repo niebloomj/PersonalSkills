@@ -150,10 +150,13 @@ least seven days old, and it never moves a pin backwards. Updates that pass the
 tests, pin verification, and policy checks merge automatically through a pull
 request, so each one can be reverted with one click.
 
-An update needs review when it adds or changes a script or executable file,
-changes a license, changes whether a skill runs automatically, or comes from
-rewritten upstream history. Those updates become one draft pull request that lists
-the reasons. Merge it to accept them; close it to reject that exact update, which
+An update needs review when it could run commands or change permissions: it adds
+or changes a script, executable, or hidden file (such as a `.claude-plugin`
+configuration); changes a skill setting other than its description and display
+text (for example `hooks`, `allowed-tools`, or whether it runs automatically);
+changes Codex settings other than display text; or adds or changes shell commands
+that run when a skill loads. License changes and rewritten upstream history also
+need review. Those updates become one draft pull request that lists the reasons. Merge it to accept them; close it to reject that exact update, which
 is then not proposed again. A manual run can use a shorter waiting period.
 
 Merged updates change the catalog, not installations on other machines. Pull the
