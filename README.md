@@ -111,7 +111,8 @@ contain private configuration and must never be committed or shared.
 - Superpowers' complete fourteen-skill set shares one upstream revision. Its
   skill references are unqualified so no `superpowers:` plugin namespace is
   required. The duplicate Codex Superpowers plugin is disabled only when all
-  fourteen replacements are present; native runtime plugins are untouched.
+  fourteen replacements are present; native runtime plugins are untouched. If the
+  Codex config cannot be edited safely, sync leaves it unchanged and audit reports it.
 - `grill-me` is retired in favor of `grilling`.
 - Trail of Bits retired `ask-questions-if-underspecified`; its obsolete copy is
   removed rather than frozen into this collection.

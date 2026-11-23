@@ -207,10 +207,14 @@ def plan(repository: Path, home: Path, config: dict[str, Any]) -> list[dict[str,
             actions.append({"kind": "json", "path": str(legacy_lock), "value": contents})
     codex_config = home / ".codex/config.toml"
     if codex_config.is_file():
-        original = codex_config.read_text(encoding="utf-8")
-        replacement = disable_duplicate_superpowers(original, catalog["skills"])
-        if replacement != original:
-            actions.append({"kind": "text", "path": str(codex_config), "value": replacement})
+        try:
+            original = codex_config.read_text(encoding="utf-8")
+            replacement = disable_duplicate_superpowers(original, catalog["skills"])
+        except ValueError as error:
+            actions.append({"kind": "skipped", "path": str(codex_config), "reason": str(error)})
+        else:
+            if replacement != original:
+                actions.append({"kind": "text", "path": str(codex_config), "value": replacement})
     state = {
         "repository": str(repository),
         "skills": {
@@ -234,7 +238,8 @@ def plan(repository: Path, home: Path, config: dict[str, Any]) -> list[dict[str,
 def apply_actions(
     actions: list[dict[str, Any]], home: Path, after_apply: Callable[[], None] | None = None
 ) -> str | None:
-    if not actions:
+    changes = [action for action in actions if action["kind"] != "skipped"]
+    if not changes:
         if after_apply is not None:
             after_apply()
         return None
@@ -249,7 +254,7 @@ def apply_actions(
     directory.chmod(0o700)
     changed: list[tuple[Path, Path | None, str | None, Path]] = []
     try:
-        for action in actions:
+        for action in changes:
             path = Path(action["path"])
             within_home(path.parent, home)
             parent = path.parent.resolve()
@@ -359,7 +364,9 @@ def audit(repository: Path, home: Path, *, external_locks: list[Path] | None = N
     external = external_ids(config)
     problems = []
     for action in plan(repository, home, config):
-        if action["kind"] != "json" or action["path"].endswith(".skill-lock.json"):
+        if action["kind"] == "skipped":
+            problems.append(f"Skipped {action['path']}: {action['reason']}")
+        elif action["kind"] != "json" or action["path"].endswith(".skill-lock.json"):
             problems.append(f"{action['kind']} required: {action['path']}")
     exempt = {Path(path).expanduser().absolute() for path in config.get("exemptRoots", [])}
 
@@ -484,6 +491,7 @@ def main() -> int:
             print(
                 f"{action['kind']}: {action['path']}"
                 + (f" -> {action['target']}" if "target" in action else "")
+                + (f" ({action['reason']})" if "reason" in action else "")
             )
         print(f"{'Applied' if arguments.apply else 'Preview'}: {len(result['actions'])} action(s).")
         if result["backup"]:
