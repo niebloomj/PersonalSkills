@@ -1,10 +1,12 @@
 import importlib
+import io
 import json
 import os
 import shutil
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import patch
 
@@ -78,20 +80,9 @@ class SyncTests(unittest.TestCase):
         )
         self.assertFalse((self.home / ".claude/skills/code-review").exists())
 
-    def test_curated_catalog_retires_approved_cuts_from_existing_installations(self):
+    def test_every_retired_catalog_id_is_removed_from_existing_installations(self):
         repository = Path(__file__).resolve().parents[1]
-        removed = (
-            "claude-md-improver",
-            "driving-claude-code-sessions",
-            "find-bugs",
-            "parallel-debugging",
-            "proactive-agent",
-            "python-executor",
-            "python-type-safety",
-            "remembering-conversations",
-            "security-review",
-            "skill-improver",
-        )
+        removed = tuple(json.loads((repository / "catalog.json").read_text())["retired"])
         roots = [
             self.home / relative
             for relative in (
@@ -209,6 +200,33 @@ class SyncTests(unittest.TestCase):
             os.environ.pop("OPENCODE_CONFIG_DIR", None)
             self.module().synchronize(self.repo, self.home, apply=True)
         self.assertFalse((self.home / ".hubspot").exists())
+
+    def test_audit_command_fails_only_for_unacknowledged_problems(self):
+        module = self.module()
+        module.synchronize(self.repo, self.home, apply=True)
+        unknown = self.home / ".claude/skills/local-experiment"
+        self.skill(unknown, "local-experiment", "User work.")
+        arguments = ["sync_skills.py", "--audit", "--home", str(self.home)]
+        with (
+            patch.object(module, "ROOT", self.repo),
+            patch.object(sys, "argv", arguments),
+            redirect_stdout(io.StringIO()),
+        ):
+            self.assertEqual(module.main(), 1)
+        shutil.rmtree(unknown)
+        retained = self.home / ".claude/skills/offline-experiment"
+        retained.symlink_to(self.home / "offline-storage")
+        config = self.home / ".local/state/personal-skills/config.json"
+        settings = json.loads(config.read_text())
+        settings["retainedDanglingLinks"] = [str(retained)]
+        config.write_text(json.dumps(settings))
+        with (
+            patch.object(module, "ROOT", self.repo),
+            patch.object(sys, "argv", arguments),
+            redirect_stdout(io.StringIO()) as output,
+        ):
+            self.assertEqual(module.main(), 0)
+        self.assertIn("0 problem(s), 1 retained-link warning(s)", output.getvalue())
 
     def test_second_sync_is_a_no_op(self):
         self.module().synchronize(self.repo, self.home, apply=True)

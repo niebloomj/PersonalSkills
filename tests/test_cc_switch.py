@@ -61,6 +61,9 @@ class CcSwitchTests(unittest.TestCase):
             "unrelatedPreference": {"keep": True},
         }
         (self.home / ".cc-switch/settings.json").write_text(json.dumps(self.settings))
+        stopped = patch.object(self.module(), "ensure_stopped")
+        stopped.start()
+        self.addCleanup(stopped.stop)
 
     def module(self):
         try:
@@ -127,6 +130,30 @@ class CcSwitchTests(unittest.TestCase):
         self.assertEqual(result["added"], 0)
         self.assertEqual(result["retired"], 0)
         self.assertIsNone(result["backup"])
+
+    def test_retired_rows_are_removed_on_apply_but_kept_in_preview(self):
+        with closing(sqlite3.connect(self.database)) as connection, connection:
+            connection.execute(
+                "INSERT INTO skills (id, name, directory) VALUES (?, ?, ?)",
+                ("obsolete-row", "Obsolete", "obsolete"),
+            )
+        preview = self.module().migrate(self.repo, self.home, apply=False)
+        self.assertEqual(preview["retired"], 1)
+        self.assertIn("obsolete-row", self.rows())
+        self.module().migrate(self.repo, self.home, apply=True)
+        rows = self.rows()
+        self.assertNotIn("obsolete-row", rows)
+        self.assertEqual(rows["original-review"]["directory"], "sentry-code-review")
+
+    def test_audit_reports_cc_switch_drift_until_migrated(self):
+        sync_skills = importlib.import_module("sync_skills")
+        config = self.home / ".local/state/personal-skills/config.json"
+        config.parent.mkdir(parents=True)
+        config.write_text(json.dumps({"ccSwitchManaged": True}))
+        problem = "CC-Switch skill metadata or storage settings require synchronization"
+        self.assertIn(problem, sync_skills.audit(self.repo, self.home))
+        self.module().migrate(self.repo, self.home, apply=True)
+        self.assertNotIn(problem, sync_skills.audit(self.repo, self.home))
 
     def test_app_running_blocks_all_migration_changes(self):
         module = self.module()
