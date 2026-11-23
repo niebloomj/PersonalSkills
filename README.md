@@ -41,6 +41,20 @@ Installation never executes upstream scripts or installs their dependencies.
 Individual skills may require tools, subscriptions, plugins, or MCP servers.
 For example, `gpt-image-2` needs the Codex CLI and a suitable ChatGPT subscription.
 
+## Sync unattended
+
+`python3 scripts/auto_sync.py run` is the unattended form of the steps above. It
+fast-forwards a clean `main` checkout, applies any pending link changes, and
+audits the result. Updated skill content is live as soon as the checkout moves,
+because installed skills link to it. Unlike the commands above, it applies
+changes without a preview.
+
+A run leaves the checkout alone when it is on another branch or has uncommitted
+changes to tracked files. It only fast-forwards, so a `main` that has diverged
+from `origin/main` stops the run. When CC-Switch manages skills, link changes
+wait until CC-Switch is fully quit. Waiting changes, audit problems, and errors
+raise a macOS notification.
+
 ## Coexist with a company registry
 
 Keep company-managed skills with their registry rather than copying internal
