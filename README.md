@@ -41,19 +41,27 @@ Installation never executes upstream scripts or installs their dependencies.
 Individual skills may require tools, subscriptions, plugins, or MCP servers.
 For example, `gpt-image-2` needs the Codex CLI and a suitable ChatGPT subscription.
 
-## Sync unattended
+## Keep a Mac in sync automatically
 
-`python3 scripts/auto_sync.py run` is the unattended form of the steps above. It
-fast-forwards a clean `main` checkout, applies any pending link changes, and
-audits the result. Updated skill content is live as soon as the checkout moves,
-because installed skills link to it. Unlike the commands above, it applies
-changes without a preview.
+`scripts/auto_sync.py` removes the manual pull-and-sync step. Its LaunchAgent runs
+at login and every six hours. Each run fast-forwards a clean `main` checkout,
+applies any pending link changes, and audits the result. Updated skill content is
+live as soon as the checkout moves, because installed skills link to it.
+
+```sh
+python3 scripts/auto_sync.py install          # preview the LaunchAgent
+python3 scripts/auto_sync.py install --apply  # install it; it also runs once now
+python3 scripts/auto_sync.py uninstall --apply
+```
 
 A run leaves the checkout alone when it is on another branch or has uncommitted
 changes to tracked files. It only fast-forwards, so a `main` that has diverged
 from `origin/main` stops the run. When CC-Switch manages skills, link changes
 wait until CC-Switch is fully quit. Waiting changes, audit problems, and errors
-raise a macOS notification.
+raise a macOS notification, and every run is logged to
+`~/.local/state/personal-skills/auto-sync.log`. `python3 scripts/auto_sync.py run`
+performs a run immediately; unlike the commands above, it applies changes without
+a preview.
 
 ## Coexist with a company registry
 

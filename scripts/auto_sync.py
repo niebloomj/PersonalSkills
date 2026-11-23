@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Keep this machine's skills in step with the catalog's main branch.
+"""Keep this Mac's skills in step with the catalog's main branch.
 
 `run` is the unattended job: it fast-forwards a clean main checkout, applies any
-pending link changes, and audits the result.
+pending link changes, and audits the result. `install` and `uninstall` manage the
+LaunchAgent that calls `run` at login and every six hours; both preview unless
+given --apply.
 """
 
 from __future__ import annotations
@@ -10,6 +12,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import plistlib
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -20,6 +24,8 @@ import cc_switch_skills
 import sync_skills
 
 ROOT = Path(__file__).resolve().parents[1]
+LABEL = "io.github.niebloomj.skills-sync"
+INTERVAL_SECONDS = 6 * 60 * 60
 GIT_TIMEOUT_SECONDS = 120
 
 
@@ -151,17 +157,88 @@ def run(repository: Path, home: Path, *, pull: bool = True) -> int:
         raise
 
 
+def agent_path(home: Path) -> Path:
+    return home / "Library/LaunchAgents" / f"{LABEL}.plist"
+
+
+def interpreter() -> str:
+    alias = shutil.which("python3")
+    if alias and Path(alias).resolve() == Path(sys.executable).resolve():
+        return alias
+    return sys.executable
+
+
+def launchctl(*arguments: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(["launchctl", *arguments], capture_output=True, text=True, check=False)
+
+
+def install(repository: Path, home: Path, *, apply: bool) -> int:
+    path, domain, output = agent_path(home), f"gui/{os.getuid()}", str(log_path(home))
+    script = str(repository / "scripts/auto_sync.py")
+    definition = {
+        "Label": LABEL,
+        "ProgramArguments": [interpreter(), script, "run", "--home", str(home)],
+        "ProcessType": "Background",
+        "RunAtLoad": True,
+        "StartInterval": INTERVAL_SECONDS,
+        "StandardErrorPath": output,
+        "StandardOutPath": output,
+    }
+    content = plistlib.dumps(definition)
+    print(f"LaunchAgent {path}:\n{content.decode('utf-8')}")
+    if not apply:
+        print("Preview only. Rerun with --apply to install it; it then runs now, at login,")
+        print("and every six hours.")
+        return 0
+    log_path(home).parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
+    launchctl("bootout", f"{domain}/{LABEL}")
+    result = launchctl("bootstrap", domain, str(path))
+    if result.returncode:
+        raise ValueError(f"launchctl bootstrap failed: {result.stderr.strip()}")
+    print(f"Installed. Log: {output}")
+    return 0
+
+
+def uninstall(home: Path, *, apply: bool) -> int:
+    path, domain = agent_path(home), f"gui/{os.getuid()}"
+    if not apply:
+        print(f"Preview only. Rerun with --apply to unload {LABEL} and remove {path}.")
+        return 0
+    launchctl("bootout", f"{domain}/{LABEL}")
+    path.unlink(missing_ok=True)
+    print("Uninstalled.")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("command", choices=("run",))
+    parser.add_argument("command", choices=("run", "install", "uninstall"))
     parser.add_argument(
-        "--no-pull", action="store_true", help="sync the checkout without updating it"
+        "--apply", action="store_true", help="install or uninstall instead of previewing"
+    )
+    parser.add_argument(
+        "--no-pull", action="store_true", help="run: sync the checkout without updating it"
     )
     parser.add_argument("--home", type=Path, default=Path.home(), help="agent home directory")
     arguments = parser.parse_args()
-    return run(ROOT, arguments.home.expanduser().resolve(), pull=not arguments.no_pull)
+    home = arguments.home.expanduser().resolve()
+    if arguments.command == "run":
+        if arguments.apply:
+            parser.error("run always applies; --apply is for install and uninstall")
+        return run(ROOT, home, pull=not arguments.no_pull)
+    if arguments.no_pull:
+        parser.error("--no-pull applies only to run")
+    try:
+        if arguments.command == "install":
+            return install(ROOT, home, apply=arguments.apply)
+        return uninstall(home, apply=arguments.apply)
+    except (OSError, ValueError) as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
