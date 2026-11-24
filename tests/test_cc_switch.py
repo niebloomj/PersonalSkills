@@ -205,6 +205,17 @@ class CcSwitchTests(unittest.TestCase):
             'Scan skills. Use when asked to "scan", "audit", or "review".',
         )
 
+    def test_description_edge_cases_match_the_marketplace(self):
+        for name, front, expected in (
+            ("comment", "description: Scan skills.\n  # Maintainer note.\n", "Scan skills."),
+            ("keep-chomping", "description: >+\n  Scan\n  skills.\n", "Scan skills."),
+        ):
+            with self.subTest(name):
+                folder = self.root / f"description-{name}"
+                folder.mkdir()
+                (folder / "SKILL.md").write_text(f"---\nname: scan\n{front}---\n")
+                self.assertEqual(self.module().description(folder), expected)
+
     def test_concurrent_settings_change_aborts_without_discarding_that_change(self):
         module = self.module()
         original_hash = module.content_hash

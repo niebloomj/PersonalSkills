@@ -71,14 +71,17 @@ def description(folder: Path) -> str:
             break
         if line.strip():
             lines.append(line.strip())
-    if value in {">", ">-", "|", "|-"}:
+    if re.fullmatch(r"[>|][+-]?", value):
         value = " ".join(lines)
     elif value.startswith('"'):
         value = json.loads(value)
     elif value.startswith("'") and value.endswith("'"):
         value = value[1:-1].replace("''", "'")
-    elif lines:
-        value = " ".join([value, *lines])
+    else:
+        for line in lines:
+            if line.startswith("#"):
+                break
+            value += " " + line
     return value
 
 
