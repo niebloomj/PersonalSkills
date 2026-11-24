@@ -228,6 +228,16 @@
       ]
     },
     {
+      "name": "i-have-adhd",
+      "description": "Shape output for a reader with ADHD: lead with the next action, number multi-step work, restate state across turns, suppress tangents, give specific time estimates, make wins visible. Invoke with /i-have-adhd; stays on until \"stop adhd mode\".",
+      "license": "MIT",
+      "repository": "https://github.com/ayghri/i-have-adhd",
+      "source": "./",
+      "skills": [
+        "./skills/i-have-adhd"
+      ]
+    },
+    {
       "name": "implement-spec",
       "description": "Implement the result of /to-spec and /to-tickets in code.",
       "license": "MIT",

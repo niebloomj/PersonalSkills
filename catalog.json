@@ -123,6 +123,10 @@
       "source": "mattpocock/skills",
       "upstreamPath": "skills/productivity/handoff"
     },
+    "i-have-adhd": {
+      "source": "ayghri/i-have-adhd",
+      "upstreamPath": "skills/i-have-adhd"
+    },
     "implement-spec": {
       "replaceMarkdown": {
         "`code-review`": "`standards-spec-review`"
@@ -306,6 +310,12 @@
       "licenseFile": "licenses/agentspace-so-agent-skills-LICENSE",
       "licensePath": "LICENSE",
       "ref": "18d61002379d024d8754318171479968c68ff6c4"
+    },
+    "ayghri/i-have-adhd": {
+      "license": "MIT",
+      "licenseFile": "licenses/ayghri-i-have-adhd-LICENSE",
+      "licensePath": "LICENSE",
+      "ref": "1ecea1993b7fce257ffbd686c070948b5e07eda6"
     },
     "coreyhaines31/marketingskills": {
       "license": "MIT",

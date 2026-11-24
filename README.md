@@ -171,8 +171,12 @@ contain private configuration and must never be committed or shared.
 
 Vendored invocation-only skills carry both standard `disable-model-invocation` metadata
 and Codex's `policy.allow_implicit_invocation: false`. Workflows such as
-`second-opinion` and `standards-spec-review` are explicit-only. User and project
+`second-opinion`, `standards-spec-review`, and `i-have-adhd` are explicit-only. User and project
 approval, scope, and delegation rules still take precedence over imported workflows.
+
+`i-have-adhd` stays on for the rest of a session once invoked, until you say "stop
+adhd mode". Only its skill folder is vendored; its upstream always-on hooks and
+editor plugins are not included.
 
 ## Add your own skill
 
