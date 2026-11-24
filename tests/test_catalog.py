@@ -38,6 +38,11 @@ class CatalogTests(unittest.TestCase):
             "catalog.json is tool-written; run `python3 scripts/update_skills.py --vendor`",
         )
 
+    def test_skill_scanner_asks_before_running_shell_commands(self):
+        skill = (Path(__file__).resolve().parents[1] / "skills/skill-scanner/SKILL.md").read_bytes()
+        settings = update_skills.top_level_settings(update_skills.frontmatter(skill))
+        self.assertNotIn("Bash", " ".join(settings.get("allowed-tools", [])))
+
     def test_upstream_update_changes_only_the_moved_pin(self):
         repository = Path(__file__).resolve().parents[1]
         new_ref = "b" * 40

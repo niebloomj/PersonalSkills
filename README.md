@@ -184,6 +184,10 @@ approval, scope, and delegation rules still take precedence over imported workfl
 adhd mode". Only its skill folder is vendored; its upstream always-on hooks and
 editor plugins are not included.
 
+`skill-scanner` reads skills that may be hostile, so its upstream pre-approval of
+`Bash` is removed and Claude Code asks before a scan runs a command. A test fails
+if an update brings the grant back.
+
 ## Add your own skill
 
 Create `skills/my-workflow/SKILL.md` with `name: my-workflow` and a useful
@@ -247,11 +251,15 @@ PRs change only the pins that moved. After editing it by hand, run `--vendor`,
 which also regenerates the plugin marketplace.
 
 Renames (`upstreamName`), explicit invocation (`manual`), Markdown reference
-rewrites (`replaceMarkdown`), and optional gallery exclusions (`exclude`) are
+rewrites (`replaceMarkdown`), and file exclusions (`exclude`) are
 recorded transformations, reproduced by imports, verification, and updates.
 Codex display names and manual-only policy are normalized for portable discovery.
 The GPT Image 2 example gallery is excluded: its images are linked remotely and
-are not dependencies of the included generation helpers.
+are not dependencies of the included generation helpers. `humanizer` is published
+as a whole repository. Its plugin manifests, CI files, `AGENTS.md`, and maintainer
+files are excluded, which currently leaves only its `SKILL.md` and Codex metadata.
+Files it adds later are vendored unless they match an exclusion, and like any
+update, additions other than Markdown or plain text wait for review.
 
 ## Attribution and licenses
 
@@ -260,10 +268,6 @@ commit, selected path, transformation, and license notice.
 [`licenses/`](licenses/) preserves those notices verbatim. Trail of Bits content
 is CC-BY-SA-4.0; Sentry CLI uses FSL-1.1-Apache-2.0. Other selected sources declare
 MIT or Apache-2.0. Those source-specific terms still apply to their content.
-
-One upstream publishes an MIT declaration in its README rather than a standalone
-license file. The declaration and limitation are explicitly preserved in the
-catalog and notice; no missing license text is invented.
 
 Remotion remains excluded pending licensing clarification. Browser fingerprint
 spoofing/identity-evasion skills are not part of this curated collection.

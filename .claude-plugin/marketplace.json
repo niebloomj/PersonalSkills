@@ -98,16 +98,6 @@
       ]
     },
     {
-      "name": "diagnosing-bugs",
-      "description": "Diagnosis loop for hard bugs and performance regressions. Use when the user says \"diagnose\"/\"debug this\", or reports something broken/throwing/failing/slow.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "skills": [
-        "./skills/diagnosing-bugs"
-      ]
-    },
-    {
       "name": "dispatching-parallel-agents",
       "description": "Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies",
       "license": "MIT",
@@ -225,6 +215,16 @@
       "source": "./",
       "skills": [
         "./skills/handoff"
+      ]
+    },
+    {
+      "name": "humanizer",
+      "description": "Rewrite AI-sounding text so it reads like the writer without changing what it says. Use when editing or reviewing prose for AI tells: not-X-but-Y contrasts, one-line closers, staged openers, forced triads, dashes everywhere, inflated claims, sales language, stock AI words, bold labels, or filler.",
+      "license": "MIT",
+      "repository": "https://github.com/blader/humanizer",
+      "source": "./",
+      "skills": [
+        "./skills/humanizer"
       ]
     },
     {
@@ -398,6 +398,16 @@
       ]
     },
     {
+      "name": "skill-scanner",
+      "description": "Scan agent skills for security issues. Use when asked to \"scan a skill\", \"audit a skill\", \"review skill security\", \"check skill for injection\", \"validate SKILL.md\", or assess whether an agent skill is safe to install. Checks for prompt injection, malicious scripts, excessive permissions, secret exposure, and supply chain risks.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/getsentry/skills",
+      "source": "./",
+      "skills": [
+        "./skills/skill-scanner"
+      ]
+    },
+    {
       "name": "standards-spec-review",
       "description": "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\".",
       "license": "MIT",
@@ -425,16 +435,6 @@
       "source": "./",
       "skills": [
         "./skills/systematic-debugging"
-      ]
-    },
-    {
-      "name": "tdd",
-      "description": "Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions \"red-green-refactor\", or wants integration tests.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "skills": [
-        "./skills/tdd"
       ]
     },
     {
@@ -478,16 +478,6 @@
       ]
     },
     {
-      "name": "typescript-advanced-types",
-      "description": "Master TypeScript's advanced type system including generics, conditional types, mapped types, template literals, and utility types for building type-safe applications. Use when implementing complex type logic, creating reusable type utilities, or ensuring compile-time type safety in TypeScript projects.",
-      "license": "MIT",
-      "repository": "https://github.com/wshobson/agents",
-      "source": "./",
-      "skills": [
-        "./skills/typescript-advanced-types"
-      ]
-    },
-    {
       "name": "using-git-worktrees",
       "description": "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback",
       "license": "MIT",
@@ -525,16 +515,6 @@
       "source": "./",
       "skills": [
         "./skills/wait-what"
-      ]
-    },
-    {
-      "name": "working-with-claude-code",
-      "description": "Use when working with Claude Code CLI, plugins, hooks, MCP servers, skills, configuration, or any Claude Code feature - provides comprehensive official documentation for all aspects of Claude Code",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers-developing-for-claude-code",
-      "source": "./",
-      "skills": [
-        "./skills/working-with-claude-code"
       ]
     },
     {

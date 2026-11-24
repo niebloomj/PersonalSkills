@@ -65,19 +65,23 @@ def description(folder: Path) -> str:
     if not match:
         raise ValueError(f"Skill has no description: {folder}")
     value = match.group(1).strip()
-    if value in {">", ">-", "|", "|-"}:
-        following = frontmatter[match.end() :].splitlines()
-        lines = []
-        for line in following:
-            if line and not line.startswith((" ", "\t")):
-                break
-            if line.strip():
-                lines.append(line.strip())
+    lines = []
+    for line in frontmatter[match.end() :].splitlines():
+        if line and not line.startswith((" ", "\t")):
+            break
+        if line.strip():
+            lines.append(line.strip())
+    if re.fullmatch(r"[>|][+-]?", value):
         value = " ".join(lines)
     elif value.startswith('"'):
         value = json.loads(value)
     elif value.startswith("'") and value.endswith("'"):
         value = value[1:-1].replace("''", "'")
+    else:
+        for line in lines:
+            if line.startswith("#"):
+                break
+            value += " " + line
     return value
 
 
