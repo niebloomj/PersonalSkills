@@ -127,6 +127,7 @@
       "exclude": [
         ".claude-plugin/*",
         ".cursor-plugin/*",
+        ".github/*",
         ".github/*/*",
         "AGENTS.md",
         "CHANGELOG.md",

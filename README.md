@@ -252,8 +252,10 @@ recorded transformations, reproduced by imports, verification, and updates.
 Codex display names and manual-only policy are normalized for portable discovery.
 The GPT Image 2 example gallery is excluded: its images are linked remotely and
 are not dependencies of the included generation helpers. `humanizer` is published
-as a whole repository, so only its `SKILL.md` and Codex metadata are vendored; its
-plugin manifests, CI files, `AGENTS.md`, and maintainer files are excluded.
+as a whole repository. Its plugin manifests, CI files, `AGENTS.md`, and maintainer
+files are excluded, which currently leaves only its `SKILL.md` and Codex metadata.
+Files it adds later are vendored unless they match an exclusion, and like any
+update, additions other than Markdown or plain text wait for review.
 
 ## Attribution and licenses
 
