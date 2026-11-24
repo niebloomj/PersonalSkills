@@ -13,10 +13,13 @@ import argparse
 import json
 import os
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
-from datetime import datetime
+import time
+import traceback
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +30,10 @@ ROOT = Path(__file__).resolve().parents[1]
 LABEL = "io.github.niebloomj.skills-sync"
 INTERVAL_SECONDS = 6 * 60 * 60
 GIT_TIMEOUT_SECONDS = 120
+NOTIFIED = 3
+BLOCKED_NOTICE = timedelta(hours=24)
+BOOTSTRAP_ATTEMPTS = 5
+FIRST_RUN_SECONDS = 180
 
 
 class GitError(RuntimeError):
@@ -39,6 +46,10 @@ def log(message: str) -> None:
 
 def log_path(home: Path) -> Path:
     return home / sync_skills.STATE / "auto-sync.log"
+
+
+def state_path(home: Path) -> Path:
+    return home / sync_skills.STATE / "auto-sync.json"
 
 
 def notify(message: str) -> None:
@@ -71,27 +82,46 @@ def git(repository: Path, *arguments: str) -> str:
     return result.stdout.strip()
 
 
-def update_checkout(repository: Path) -> bool:
+def update_checkout(repository: Path) -> tuple[bool, str | None]:
     branch = git(repository, "branch", "--show-current")
     if branch != "main":
-        log(f"Skipped: the checkout is on {branch or 'a detached HEAD'}, not main.")
-        return False
+        reason = f"the checkout is on {branch or 'a detached HEAD'}, not main"
+        log(f"Skipped: {reason}.")
+        return False, reason
     if git(repository, "status", "--porcelain", "--untracked-files=no"):
-        log("Skipped: the checkout has uncommitted changes.")
-        return False
+        reason = "the checkout has uncommitted changes"
+        log(f"Skipped: {reason}.")
+        return False, reason
     before = git(repository, "rev-parse", "HEAD")
     try:
         git(repository, "fetch", "--quiet", "origin", "main")
     except GitError as error:
         log(f"Could not fetch origin/main, so syncing the current checkout: {error}")
-        return True
+        return True, "origin/main could not be fetched"
     try:
         git(repository, "merge", "--ff-only", "--quiet", "origin/main")
     except GitError as error:
         raise GitError(f"main cannot fast-forward to origin/main: {error}") from error
     after = git(repository, "rev-parse", "HEAD")
     log(f"Updated main {before[:12]}..{after[:12]}." if after != before else "main is current.")
-    return True
+    return True, None
+
+
+def note_progress(home: Path, blocked: str | None, now: datetime) -> None:
+    path = state_path(home)
+    state = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    if blocked is None or "lastSynced" not in state:
+        state = {"lastSynced": now.isoformat()}
+    else:
+        since = datetime.fromisoformat(state["lastSynced"])
+        noticed = state.get("lastNotice")
+        if now - since >= BLOCKED_NOTICE and (
+            noticed is None or now - datetime.fromisoformat(noticed) >= BLOCKED_NOTICE
+        ):
+            notify(f"Skills haven't synced since {since.astimezone():%b %d}: {blocked}.")
+            state["lastNotice"] = now.isoformat()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def run_updated_copy(repository: Path, home: Path) -> int:
@@ -139,22 +169,30 @@ def sync(repository: Path, home: Path) -> int:
     )
     if report["problems"]:
         notify(f"The skill audit found {len(report['problems'])} problem(s). See {log_path(home)}.")
-        return 1
+        return NOTIFIED
     return 0
 
 
 def run(repository: Path, home: Path, *, pull: bool = True) -> int:
     try:
-        if pull:
-            return run_updated_copy(repository, home) if update_checkout(repository) else 0
-        return sync(repository, home)
+        if not pull:
+            return sync(repository, home)
+        proceed, blocked = update_checkout(repository)
+        code = run_updated_copy(repository, home) if proceed else 0
+        if code not in (0, NOTIFIED):
+            log(f"Error: the sync exited {code} without reporting why.")
+            notify(f"Skill sync failed. See {log_path(home)}.")
+        if code == 0:
+            note_progress(home, blocked, datetime.now(UTC))
+        return 0 if code == 0 else NOTIFIED
     except (GitError, OSError, ValueError, KeyError) as error:
         log(f"Error: {error}")
         notify(f"Skill sync failed: {error}")
-        return 1
+        return NOTIFIED
     except Exception as error:
+        log(f"Error: {error!r}\n{traceback.format_exc()}")
         notify(f"Skill sync crashed: {error}")
-        raise
+        return NOTIFIED
 
 
 def agent_path(home: Path) -> Path:
@@ -194,11 +232,36 @@ def install(repository: Path, home: Path, *, apply: bool) -> int:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(content)
     launchctl("bootout", f"{domain}/{LABEL}")
-    result = launchctl("bootstrap", domain, str(path))
-    if result.returncode:
+    for _ in range(BOOTSTRAP_ATTEMPTS):
+        result = launchctl("bootstrap", domain, str(path))
+        if not result.returncode:
+            break
+        time.sleep(1)
+    else:
         raise ValueError(f"launchctl bootstrap failed: {result.stderr.strip()}")
-    print(f"Installed. Log: {output}")
+    print(f"Installed. Waiting for the first run; log: {output}")
+    code = first_exit_code(domain)
+    if code is None:
+        print("The first run is still going. Check the log in a few minutes.")
+    elif code:
+        print(f"The first run failed with exit code {code}. See the log.")
+        print("If it says 'Operation not permitted', allow python3 to use the Documents")
+        print("folder in System Settings > Privacy & Security > Files and Folders.")
+        return 1
+    else:
+        print("The first run finished. The log shows what it did.")
     return 0
+
+
+def first_exit_code(domain: str) -> int | None:
+    deadline = time.monotonic() + FIRST_RUN_SECONDS
+    while time.monotonic() < deadline:
+        status = launchctl("print", f"{domain}/{LABEL}").stdout
+        finished = re.search(r"last exit code = (\d+)", status)
+        if finished and "state = running" not in status:
+            return int(finished[1])
+        time.sleep(2)
+    return None
 
 
 def uninstall(home: Path, *, apply: bool) -> int:

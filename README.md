@@ -58,10 +58,34 @@ A run leaves the checkout alone when it is on another branch or has uncommitted
 changes to tracked files. It only fast-forwards, so a `main` that has diverged
 from `origin/main` stops the run. When CC-Switch manages skills, link changes
 wait until CC-Switch is fully quit. Waiting changes, audit problems, and errors
-raise a macOS notification, and every run is logged to
+raise a macOS notification, as does syncing that stays blocked for more than a
+day (at most once a day). Every run is logged to
 `~/.local/state/personal-skills/auto-sync.log`. `python3 scripts/auto_sync.py run`
 performs a run immediately; unlike the commands above, it applies changes without
 a preview.
+
+`install --apply` waits for the first run and reports how it ended. Because this
+checkout lives in `~/Documents`, macOS may ask whether `python3` can access that
+folder; allow it, or grant access later in System Settings > Privacy & Security >
+Files and Folders. A Homebrew Python upgrade can ask again.
+
+## Install as Claude Code plugins
+
+This repository is also a Claude Code plugin marketplace, `niebloomj-skills`, with
+one plugin per skill. Use it on machines that don't run the sync:
+
+```sh
+claude plugin marketplace add niebloomj/Skills
+claude plugin install i-have-adhd@niebloomj-skills
+claude plugin marketplace update niebloomj-skills
+```
+
+A plugin skill runs with its plugin name as a prefix, such as
+`/i-have-adhd:i-have-adhd`. Plugins come from `main`, so they carry the same
+reviewed content. Don't also install them on a machine that runs the sync, or
+each skill appears twice.
+[`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) is generated
+from the catalog by the updater and `--vendor`; `--check` fails when it is stale.
 
 ## Coexist with a company registry
 
@@ -167,23 +191,31 @@ the upstream updater. Keep their supporting files beside `SKILL.md`.
 ## Review and update
 
 The weekly **Check upstream skills** workflow keeps the catalog current without a
-human in the loop. For each source it adopts the newest upstream commit that is at
-least seven days old, and it never moves a pin backwards. Updates that pass the
-tests, pin verification, and policy checks merge automatically through a pull
+human in the loop. For each source it adopts the commit that headed the default
+branch seven days earlier, timed by GitHub's push records rather than commit
+dates, and it never moves a pin backwards. Updates that pass the tests, pin
+verification, and the safe-change rule merge automatically through a pull
 request, so each one can be reverted with one click.
 
-An update needs review when it could run commands or change permissions: it adds
-or changes a script, executable, or hidden file (such as a `.claude-plugin`
-configuration); changes a skill setting other than its description and display
-text (for example `hooks`, `allowed-tools`, or whether it runs automatically);
-changes Codex settings other than display text; or adds or changes shell commands
-that run when a skill loads. License changes and rewritten upstream history also
-need review. Those updates become one draft pull request that lists the reasons. Merge it to accept them; close it to reject that exact update, which
-is then not proposed again. A manual run can use a shorter waiting period.
+An update merges automatically only when its shape is known to be safe:
 
-Merged updates change the catalog, not installations on other machines. Pull the
-catalog and run the sync/audit commands on each machine. Do not refresh this
-collection through separate upstream installers.
+- every changed file is Markdown or plain text, and none is hidden, executable,
+  a license, a nested `SKILL.md`, or a name that differs from another only in case
+  or Unicode form;
+- `SKILL.md` frontmatter is unchanged except for a simply written `description`;
+- `SKILL.md` contains no `` !` `` or ```` ```! ```` shell command; and
+- the skill does not pre-approve tools or define hooks.
+
+Everything else, including license changes and rewritten upstream history,
+becomes one draft pull request that lists the reasons. Merge it to accept the
+updates; close it to reject that exact update, which is then not proposed again.
+Plain instruction changes still merge after the wait, so the rule limits what can
+run commands or grant permissions, not what skill text asks an agent to do. A
+manual run can use a shorter waiting period.
+
+Macs with the sync LaunchAgent pick up merged updates within six hours. Elsewhere,
+pull the catalog and run the sync/audit commands. Do not refresh this collection
+through separate upstream installers.
 
 ```sh
 python3 -m unittest discover -s tests -v
@@ -198,7 +230,8 @@ on missing paths, renamed skills, unsafe file types, or oversized content.
 
 `catalog.json` is tool-written. The updater and `--vendor` write it with sorted
 keys and two-space indentation, and the tests reject any other layout, so update
-PRs change only the pins that moved. After editing it by hand, run `--vendor`.
+PRs change only the pins that moved. After editing it by hand, run `--vendor`,
+which also regenerates the plugin marketplace.
 
 Renames (`upstreamName`), explicit invocation (`manual`), Markdown reference
 rewrites (`replaceMarkdown`), and optional gallery exclusions (`exclude`) are

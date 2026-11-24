@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import plistlib
 import subprocess
@@ -6,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -61,11 +63,11 @@ class CheckoutTests(Isolated):
         self.git(self.root, "clone", "--quiet", str(origin), str(self.upstream))
         self.commit(self.upstream, "first")
         self.git(self.root, "clone", "--quiet", str(origin), str(self.checkout))
-        self.synced = []
+        self.synced, self.child_code = [], 0
         self.patch(
             auto_sync,
             "run_updated_copy",
-            lambda repository, home: self.synced.append(repository) or 0,
+            lambda repository, home: self.synced.append(repository) or self.child_code,
         )
 
     def git(self, directory, *arguments):
@@ -129,9 +131,57 @@ class CheckoutTests(Isolated):
         before = self.head(self.checkout)
         code, output = self.run_job()
         self.assertEqual(self.head(self.checkout), before)
-        self.assertEqual((code, self.synced), (1, []))
+        self.assertEqual((code, self.synced), (auto_sync.NOTIFIED, []))
         self.assertEqual(len(self.notices), 1)
         self.assertIn("cannot fast-forward", output)
+
+    def test_a_failure_the_sync_did_not_report_is_reported(self):
+        self.child_code = 1
+        code, output = self.run_job()
+        self.assertEqual(code, auto_sync.NOTIFIED)
+        self.assertEqual(self.notices, [f"Skill sync failed. See {auto_sync.log_path(self.home)}."])
+        self.assertIn("exited 1 without reporting why", output)
+
+    def test_a_failure_the_sync_reported_is_not_reported_again(self):
+        self.child_code = auto_sync.NOTIFIED
+        code, _ = self.run_job()
+        self.assertEqual((code, self.notices), (auto_sync.NOTIFIED, []))
+
+    def test_a_skipped_run_records_why_syncing_is_blocked(self):
+        self.git(self.checkout, "switch", "--quiet", "-c", "feature")
+        blocked = []
+        self.patch(auto_sync, "note_progress", lambda home, reason, now: blocked.append(reason))
+        self.run_job()
+        self.assertEqual(blocked, ["the checkout is on feature, not main"])
+
+
+class BlockedNoticeTests(Isolated):
+    START = datetime(2026, 11, 23, 12, tzinfo=UTC)
+
+    def note(self, blocked, hours):
+        auto_sync.note_progress(self.home, blocked, self.START + timedelta(hours=hours))
+
+    def test_the_first_blocked_run_starts_the_clock_without_a_notice(self):
+        self.note("the checkout is on feature, not main", 0)
+        self.assertEqual(self.notices, [])
+        state = json.loads(auto_sync.state_path(self.home).read_text())
+        self.assertEqual(state, {"lastSynced": self.START.isoformat()})
+
+    def test_a_day_without_syncing_notifies_once_a_day(self):
+        self.note(None, 0)
+        for hours, expected in ((23, 0), (25, 1), (30, 1), (49, 2)):
+            self.note("the checkout is on feature, not main", hours)
+            self.assertEqual(len(self.notices), expected, f"after {hours} hours")
+        self.assertIn("the checkout is on feature, not main", self.notices[0])
+
+    def test_a_successful_sync_resets_the_clock(self):
+        self.note(None, 0)
+        self.note("origin/main could not be fetched", 25)
+        self.note(None, 26)
+        state = json.loads(auto_sync.state_path(self.home).read_text())
+        self.assertEqual(state, {"lastSynced": (self.START + timedelta(hours=26)).isoformat()})
+        self.note("origin/main could not be fetched", 49)
+        self.assertEqual(len(self.notices), 1)
 
 
 class UpdatedCopyTests(Isolated):
@@ -226,19 +276,25 @@ class SyncTests(Isolated):
     def test_audit_problems_notify(self):
         self.report = {"problems": ["Unmanaged skill: /h/.claude/skills/stray"], "warnings": []}
         code, output = self.sync()
-        self.assertEqual(code, 1)
+        self.assertEqual(code, auto_sync.NOTIFIED)
         self.assertEqual(len(self.notices), 1)
         self.assertIn("Problem: Unmanaged skill: /h/.claude/skills/stray", output)
 
     def test_sync_errors_notify(self):
         self.error = ValueError("catalog.json has an unsupported or incomplete schema")
         code, output = self.sync()
-        self.assertEqual(code, 1)
+        self.assertEqual(code, auto_sync.NOTIFIED)
         self.assertEqual(
             self.notices,
             ["Skill sync failed: catalog.json has an unsupported or incomplete schema"],
         )
         self.assertIn("Error: catalog.json", output)
+
+    def test_unexpected_errors_are_reported_with_a_traceback(self):
+        self.error = RuntimeError("boom")
+        code, output = self.sync()
+        self.assertEqual((code, self.notices), (auto_sync.NOTIFIED, ["Skill sync crashed: boom"]))
+        self.assertIn("Traceback", output)
 
 
 class FreshHomeTests(Isolated):
@@ -255,20 +311,30 @@ class FreshHomeTests(Isolated):
         self.assertIn("already match", output)
 
 
+FINISHED = "state = not running\n\tlast exit code = 0\n"
+RUNNING = "state = running\n\tlast exit code = (never exited)\n"
+
+
 class AgentTests(Isolated):
     def setUp(self):
         super().setUp()
-        self.calls = []
-        self.patch(
-            auto_sync,
-            "launchctl",
-            lambda *arguments: (
-                self.calls.append(arguments) or subprocess.CompletedProcess(arguments, 0, "", "")
-            ),
-        )
+        self.calls, self.bootstrap_failures, self.statuses = [], 0, [FINISHED]
+        self.patch(auto_sync, "launchctl", self.launchctl)
         self.patch(auto_sync, "interpreter", lambda: "/opt/homebrew/bin/python3")
+        self.patch(auto_sync.time, "sleep", lambda seconds: None)
         self.agent = self.home / "Library/LaunchAgents" / f"{auto_sync.LABEL}.plist"
         self.domain = f"gui/{os.getuid()}"
+        self.service = f"{self.domain}/{auto_sync.LABEL}"
+
+    def launchctl(self, *arguments):
+        self.calls.append(arguments)
+        if arguments[0] == "bootstrap" and self.bootstrap_failures:
+            self.bootstrap_failures -= 1
+            return subprocess.CompletedProcess(arguments, 5, "", "5: Input/output error")
+        if arguments[0] == "print":
+            status = self.statuses.pop(0) if len(self.statuses) > 1 else self.statuses[0]
+            return subprocess.CompletedProcess(arguments, 0, status, "")
+        return subprocess.CompletedProcess(arguments, 0, "", "")
 
     def test_install_previews_by_default(self):
         code, output = captured(auto_sync.install, REPOSITORY, self.home, apply=False)
@@ -296,16 +362,57 @@ class AgentTests(Isolated):
             (definition["StandardOutPath"], definition["StandardErrorPath"]), (log, log)
         )
         self.assertTrue((self.home / ".local/state/personal-skills").is_dir())
-        self.assertEqual(self.calls[-1], ("bootstrap", self.domain, str(self.agent)))
+        self.assertEqual(
+            self.calls,
+            [
+                ("bootout", self.service),
+                ("bootstrap", self.domain, str(self.agent)),
+                ("print", self.service),
+            ],
+        )
+
+    def test_bootstrap_is_retried_after_a_transient_failure(self):
+        self.bootstrap_failures = 2
+        code, _ = captured(auto_sync.install, REPOSITORY, self.home, apply=True)
+        self.assertEqual(code, 0)
+        self.assertEqual([call[0] for call in self.calls].count("bootstrap"), 3)
 
     def test_failed_bootstrap_is_reported(self):
-        self.patch(
-            auto_sync,
-            "launchctl",
-            lambda *arguments: subprocess.CompletedProcess(arguments, 5, "", "Input/output error"),
-        )
+        self.bootstrap_failures = auto_sync.BOOTSTRAP_ATTEMPTS
         with self.assertRaisesRegex(ValueError, "Input/output error"):
             captured(auto_sync.install, REPOSITORY, self.home, apply=True)
+        self.assertEqual(
+            [call[0] for call in self.calls].count("bootstrap"), auto_sync.BOOTSTRAP_ATTEMPTS
+        )
+
+    def test_install_waits_for_the_first_run_to_finish(self):
+        self.statuses = [RUNNING, RUNNING, FINISHED]
+        code, output = captured(auto_sync.install, REPOSITORY, self.home, apply=True)
+        self.assertEqual(code, 0)
+        self.assertEqual([call[0] for call in self.calls].count("print"), 3)
+        self.assertIn("The first run finished", output)
+
+    def test_a_failed_first_run_points_to_the_documents_permission(self):
+        self.statuses = ["state = not running\n\tlast exit code = 2\n"]
+        code, output = captured(auto_sync.install, REPOSITORY, self.home, apply=True)
+        self.assertEqual(code, 1)
+        self.assertIn("exit code 2", output)
+        self.assertIn("Files and Folders", output)
+
+    def test_an_earlier_exit_code_is_not_mistaken_for_the_first_run(self):
+        self.statuses = [
+            "state = running\n\tlast exit code = 0\n",
+            "state = not running\n\tlast exit code = 2\n",
+        ]
+        code, _ = captured(auto_sync.install, REPOSITORY, self.home, apply=True)
+        self.assertEqual(code, 1)
+
+    def test_a_first_run_still_going_is_reported(self):
+        self.statuses = [RUNNING]
+        with patch.object(auto_sync, "FIRST_RUN_SECONDS", 0.05):
+            code, output = captured(auto_sync.install, REPOSITORY, self.home, apply=True)
+        self.assertEqual(code, 0)
+        self.assertIn("still going", output)
 
     def test_uninstall_previews_by_default(self):
         captured(auto_sync.install, REPOSITORY, self.home, apply=True)
