@@ -193,6 +193,18 @@ class CcSwitchTests(unittest.TestCase):
         )
         self.assertEqual(self.module().description(folder), "Review the changes for real bugs.")
 
+    def test_wrapped_plain_description_keeps_its_continuation_lines(self):
+        folder = self.root / "wrapped-description"
+        folder.mkdir()
+        (folder / "SKILL.md").write_text(
+            '---\nname: scan\ndescription: Scan skills. Use when asked to "scan",\n'
+            '  "audit", or "review".\nallowed-tools: Read\n---\n'
+        )
+        self.assertEqual(
+            self.module().description(folder),
+            'Scan skills. Use when asked to "scan", "audit", or "review".',
+        )
+
     def test_concurrent_settings_change_aborts_without_discarding_that_change(self):
         module = self.module()
         original_hash = module.content_hash

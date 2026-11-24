@@ -236,6 +236,15 @@ class UpstreamUpdateTests(unittest.TestCase):
         skill = skill_text("docs", ">\n  Write better\n  things.")
         self.assertEqual(update_skills.skill_description(skill), "Write better things.")
 
+    def test_marketplace_descriptions_keep_wrapped_plain_lines(self):
+        skill = skill_text(
+            "docs", 'Write better things. Use when asked to "edit",\n  "review", or "rewrite".'
+        )
+        self.assertEqual(
+            update_skills.skill_description(skill),
+            'Write better things. Use when asked to "edit", "review", or "rewrite".',
+        )
+
     def test_marketplace_descriptions_unescape_quoted_text(self):
         self.upstream["docs"] = {"SKILL.md": skill_text("docs", '"Write \\"better\\" things."')}
         self.update("clean")

@@ -561,6 +561,8 @@ def skill_description(skill: bytes) -> str:
             value = value.strip('"')
     elif len(value) > 1 and value[0] == value[-1] == "'":
         value = value[1:-1].replace("''", "'")
+    else:
+        value = " ".join([value, *(line for line in lines[1:] if line[:1].isspace())])
     return " ".join(value.split())
 
 
