@@ -98,16 +98,6 @@
       ]
     },
     {
-      "name": "diagnosing-bugs",
-      "description": "Diagnosis loop for hard bugs and performance regressions. Use when the user says \"diagnose\"/\"debug this\", or reports something broken/throwing/failing/slow.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "skills": [
-        "./skills/diagnosing-bugs"
-      ]
-    },
-    {
       "name": "dispatching-parallel-agents",
       "description": "Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies",
       "license": "MIT",
@@ -428,16 +418,6 @@
       ]
     },
     {
-      "name": "tdd",
-      "description": "Test-driven development. Use when the user wants to build features or fix bugs test-first, mentions \"red-green-refactor\", or wants integration tests.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "skills": [
-        "./skills/tdd"
-      ]
-    },
-    {
       "name": "test-driven-development",
       "description": "Use when implementing any feature or bugfix, before writing implementation code",
       "license": "MIT",
@@ -478,16 +458,6 @@
       ]
     },
     {
-      "name": "typescript-advanced-types",
-      "description": "Master TypeScript's advanced type system including generics, conditional types, mapped types, template literals, and utility types for building type-safe applications. Use when implementing complex type logic, creating reusable type utilities, or ensuring compile-time type safety in TypeScript projects.",
-      "license": "MIT",
-      "repository": "https://github.com/wshobson/agents",
-      "source": "./",
-      "skills": [
-        "./skills/typescript-advanced-types"
-      ]
-    },
-    {
       "name": "using-git-worktrees",
       "description": "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback",
       "license": "MIT",
@@ -525,16 +495,6 @@
       "source": "./",
       "skills": [
         "./skills/wait-what"
-      ]
-    },
-    {
-      "name": "working-with-claude-code",
-      "description": "Use when working with Claude Code CLI, plugins, hooks, MCP servers, skills, configuration, or any Claude Code feature - provides comprehensive official documentation for all aspects of Claude Code",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers-developing-for-claude-code",
-      "source": "./",
-      "skills": [
-        "./skills/working-with-claude-code"
       ]
     },
     {

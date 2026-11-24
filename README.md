@@ -261,9 +261,5 @@ commit, selected path, transformation, and license notice.
 is CC-BY-SA-4.0; Sentry CLI uses FSL-1.1-Apache-2.0. Other selected sources declare
 MIT or Apache-2.0. Those source-specific terms still apply to their content.
 
-One upstream publishes an MIT declaration in its README rather than a standalone
-license file. The declaration and limitation are explicitly preserved in the
-catalog and notice; no missing license text is invented.
-
 Remotion remains excluded pending licensing clarification. Browser fingerprint
 spoofing/identity-evasion skills are not part of this curated collection.
