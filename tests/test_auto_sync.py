@@ -75,8 +75,10 @@ class CheckoutTests(Isolated):
             ["git", "-C", str(directory), *arguments], check=True, capture_output=True, text=True
         ).stdout.strip()
 
-    def commit(self, directory, text, push=True, filename="notes.txt"):
-        (directory / filename).write_text(text)
+    def commit(self, directory, text, push=True, filename="catalog.json"):
+        path = directory / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
         self.git(directory, "add", filename)
         self.git(directory, "commit", "--quiet", "-m", text)
         if push:
@@ -105,12 +107,32 @@ class CheckoutTests(Isolated):
         self.assertIn("on feature, not main", output)
 
     def test_uncommitted_changes_are_left_alone(self):
-        (self.checkout / "notes.txt").write_text("editing")
+        (self.checkout / "catalog.json").write_text("editing")
         self.commit(self.upstream, "second")
         code, output = self.run_job()
         self.assertEqual((code, self.synced), (0, []))
-        self.assertEqual((self.checkout / "notes.txt").read_text(), "editing")
+        self.assertEqual((self.checkout / "catalog.json").read_text(), "editing")
         self.assertIn("uncommitted changes", output)
+
+    def test_incoming_skill_content_fast_forwards(self):
+        for path in ("skills/docs/SKILL.md", "licenses/example-LICENSE"):
+            self.commit(self.upstream, "content", push=False, filename=path)
+        self.commit(self.upstream, "marketplace", filename=".claude-plugin/marketplace.json")
+        code, _ = self.run_job()
+        self.assertEqual((code, self.synced), (0, [self.checkout]))
+        self.assertEqual(self.head(self.checkout), self.head(self.upstream))
+
+    def test_incoming_code_waits_for_a_manual_pull(self):
+        before = self.head(self.checkout)
+        self.commit(self.upstream, "content", push=False, filename="skills/docs/SKILL.md")
+        self.commit(self.upstream, "print('hi')", filename="scripts/auto_sync.py")
+        blocked = []
+        self.patch(auto_sync, "note_progress", lambda home, reason, now: blocked.append(reason))
+        code, output = self.run_job()
+        self.assertEqual((code, self.synced, self.head(self.checkout)), (0, [], before))
+        reason = "origin/main changes scripts/auto_sync.py; review it and pull by hand"
+        self.assertIn(reason, output)
+        self.assertEqual(blocked, [reason])
 
     def test_untracked_files_do_not_block_updates(self):
         (self.checkout / "scratch.txt").write_text("scratch")

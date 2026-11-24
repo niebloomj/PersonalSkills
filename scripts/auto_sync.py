@@ -32,6 +32,7 @@ INTERVAL_SECONDS = 6 * 60 * 60
 GIT_TIMEOUT_SECONDS = 120
 NOTIFIED = 3
 BLOCKED_NOTICE = timedelta(hours=24)
+CONTENT_PATHS = ("skills/", "licenses/", "catalog.json", ".claude-plugin/marketplace.json")
 BOOTSTRAP_ATTEMPTS = 5
 FIRST_RUN_SECONDS = 180
 WRAPPER = """"$1" "$2" run --home "$3"
@@ -108,6 +109,12 @@ def update_checkout(repository: Path) -> tuple[bool, str | None]:
     except GitError as error:
         log(f"Could not fetch origin/main, so syncing the current checkout: {error}")
         return True, "origin/main could not be fetched"
+    incoming = git(repository, "diff", "--name-only", "HEAD...origin/main").splitlines()
+    if code := [path for path in incoming if not path.startswith(CONTENT_PATHS)]:
+        more = f" and {len(code) - 1} other file(s)" if len(code) > 1 else ""
+        reason = f"origin/main changes {code[0]}{more}; review it and pull by hand"
+        log(f"Skipped: {reason}.")
+        return False, reason
     try:
         git(repository, "merge", "--ff-only", "--quiet", "origin/main")
     except GitError as error:

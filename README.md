@@ -56,7 +56,11 @@ python3 scripts/auto_sync.py uninstall --apply
 
 A run leaves the checkout alone when it is on another branch or has uncommitted
 changes to tracked files. It only fast-forwards, so a `main` that has diverged
-from `origin/main` stops the run. When CC-Switch manages skills, link changes
+from `origin/main` stops the run. It also fast-forwards only skill content
+(`skills/`, `licenses/`, `catalog.json`, and the marketplace file); when
+`origin/main` changes anything else, such as these scripts, it skips and asks you
+to review and pull by hand, so a push to this repository cannot run new code on
+your Mac unattended. When CC-Switch manages skills, link changes
 wait until CC-Switch is fully quit. Waiting changes, audit problems, and errors
 raise a macOS notification, as does syncing that stays blocked for more than a
 day (at most once a day). Every run is logged to
