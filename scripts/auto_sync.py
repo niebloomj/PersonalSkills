@@ -34,6 +34,16 @@ NOTIFIED = 3
 BLOCKED_NOTICE = timedelta(hours=24)
 BOOTSTRAP_ATTEMPTS = 5
 FIRST_RUN_SECONDS = 180
+WRAPPER = """"$1" "$2" run --home "$3"
+code=$?
+case $code in
+  0|3) ;;
+  *) osascript -e 'on run argv' \\
+       -e 'display notification (item 1 of argv) with title "Personal skills"' -e 'end run' \\
+       "The skill sync could not start (exit $code). See $4." ;;
+esac
+exit $code
+"""
 
 
 class GitError(RuntimeError):
@@ -107,21 +117,51 @@ def update_checkout(repository: Path) -> tuple[bool, str | None]:
     return True, None
 
 
-def note_progress(home: Path, blocked: str | None, now: datetime) -> None:
+def moment(value: Any) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else None
+
+
+def read_state(home: Path) -> dict[str, datetime]:
     path = state_path(home)
-    state = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    if blocked is None or "lastSynced" not in state:
-        state = {"lastSynced": now.isoformat()}
-    else:
-        since = datetime.fromisoformat(state["lastSynced"])
-        noticed = state.get("lastNotice")
-        if now - since >= BLOCKED_NOTICE and (
-            noticed is None or now - datetime.fromisoformat(noticed) >= BLOCKED_NOTICE
-        ):
-            notify(f"Skills haven't synced since {since.astimezone():%b %d}: {blocked}.")
-            state["lastNotice"] = now.isoformat()
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError):
+        raw = None
+    if not isinstance(raw, dict):
+        log(f"Starting over from an unreadable {path.name}.")
+        return {}
+    times = {key: moment(raw.get(key)) for key in ("lastSynced", "lastNotice")}
+    return {key: value for key, value in times.items() if value is not None}
+
+
+def write_state(home: Path, state: dict[str, datetime]) -> None:
+    path = state_path(home)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, sort_keys=True) + "\n", encoding="utf-8")
+    temporary = path.with_name(path.name + ".tmp")
+    text = json.dumps({key: value.isoformat() for key, value in state.items()}, sort_keys=True)
+    temporary.write_text(text + "\n", encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def note_progress(home: Path, blocked: str | None, now: datetime) -> None:
+    state = read_state(home)
+    since = state.get("lastSynced")
+    if blocked is None or since is None:
+        state = {"lastSynced": now}
+    elif now - since >= BLOCKED_NOTICE:
+        noticed = state.get("lastNotice")
+        if noticed is None or now - noticed >= BLOCKED_NOTICE:
+            notify(f"Skills haven't synced since {since.astimezone():%b %d}: {blocked}.")
+            state["lastNotice"] = now
+    write_state(home, state)
 
 
 def run_updated_copy(repository: Path, home: Path) -> int:
@@ -215,7 +255,16 @@ def install(repository: Path, home: Path, *, apply: bool) -> int:
     script = str(repository / "scripts/auto_sync.py")
     definition = {
         "Label": LABEL,
-        "ProgramArguments": [interpreter(), script, "run", "--home", str(home)],
+        "ProgramArguments": [
+            "/bin/sh",
+            "-c",
+            WRAPPER,
+            "auto-sync",
+            interpreter(),
+            script,
+            str(home),
+            output,
+        ],
         "ProcessType": "Background",
         "RunAtLoad": True,
         "StartInterval": INTERVAL_SECONDS,

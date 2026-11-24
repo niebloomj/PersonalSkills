@@ -174,6 +174,20 @@ class BlockedNoticeTests(Isolated):
             self.assertEqual(len(self.notices), expected, f"after {hours} hours")
         self.assertIn("the checkout is on feature, not main", self.notices[0])
 
+    def test_an_unreadable_state_file_starts_the_clock_over(self):
+        path = auto_sync.state_path(self.home)
+        path.parent.mkdir(parents=True)
+        for content in ("", "null", '{"lastSynced": "2026-11-20T12:00:00"}', '{"lastSynced": 5}'):
+            with self.subTest(content=content):
+                path.write_text(content)
+                captured(self.note, "the checkout is on feature, not main", 30)
+                state = json.loads(path.read_text())
+                self.assertEqual(
+                    state, {"lastSynced": (self.START + timedelta(hours=30)).isoformat()}
+                )
+        self.assertEqual(self.notices, [])
+        self.assertEqual([item.name for item in path.parent.iterdir()], [path.name])
+
     def test_a_successful_sync_resets_the_clock(self):
         self.note(None, 0)
         self.note("origin/main could not be fetched", 25)
@@ -346,18 +360,21 @@ class AgentTests(Isolated):
         code, _ = captured(auto_sync.install, REPOSITORY, self.home, apply=True)
         self.assertEqual(code, 0)
         definition = plistlib.loads(self.agent.read_bytes())
+        log = str(self.home / ".local/state/personal-skills/auto-sync.log")
         self.assertEqual(
             definition["ProgramArguments"],
             [
+                "/bin/sh",
+                "-c",
+                auto_sync.WRAPPER,
+                "auto-sync",
                 "/opt/homebrew/bin/python3",
                 str(REPOSITORY / "scripts/auto_sync.py"),
-                "run",
-                "--home",
                 str(self.home),
+                log,
             ],
         )
         self.assertEqual((definition["RunAtLoad"], definition["StartInterval"]), (True, 21600))
-        log = str(self.home / ".local/state/personal-skills/auto-sync.log")
         self.assertEqual(
             (definition["StandardOutPath"], definition["StandardErrorPath"]), (log, log)
         )
@@ -428,6 +445,40 @@ class AgentTests(Isolated):
         code, _ = captured(auto_sync.uninstall, self.home, apply=True)
         self.assertEqual((code, self.calls), (0, [("bootout", f"{self.domain}/{auto_sync.LABEL}")]))
         self.assertFalse(self.agent.exists())
+
+
+class WrapperTests(Isolated):
+    def run_wrapper(self, exit_code):
+        tools = self.root / "bin"
+        tools.mkdir(exist_ok=True)
+        python = tools / "python3"
+        python.write_text(f'#!/bin/sh\necho "$@" > "{self.root}/arguments"\nexit {exit_code}\n')
+        osascript = tools / "osascript"
+        osascript.write_text(f'#!/bin/sh\nprintf "%s\\n" "$@" > "{self.root}/notice"\n')
+        for tool in (python, osascript):
+            tool.chmod(0o755)
+        (self.root / "notice").unlink(missing_ok=True)
+        result = subprocess.run(
+            ["/bin/sh", "-c", auto_sync.WRAPPER, "auto-sync", str(python), "job.py", "home", "log"],
+            env={"PATH": f"{tools}:/usr/bin:/bin"},
+            check=False,
+        )
+        notice = self.root / "notice"
+        return result.returncode, notice.read_text() if notice.exists() else None
+
+    def test_the_job_runs_with_its_arguments(self):
+        self.run_wrapper(0)
+        self.assertEqual((self.root / "arguments").read_text(), "job.py run --home home\n")
+
+    def test_reported_outcomes_raise_no_extra_notice(self):
+        for exit_code in (0, auto_sync.NOTIFIED):
+            with self.subTest(exit_code=exit_code):
+                self.assertEqual(self.run_wrapper(exit_code), (exit_code, None))
+
+    def test_a_job_that_cannot_start_raises_a_notice(self):
+        code, notice = self.run_wrapper(2)
+        self.assertEqual(code, 2)
+        self.assertIn("The skill sync could not start (exit 2). See log.", notice)
 
 
 class InterpreterTests(Isolated):

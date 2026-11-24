@@ -67,7 +67,9 @@ a preview.
 `install --apply` waits for the first run and reports how it ended. Because this
 checkout lives in `~/Documents`, macOS may ask whether `python3` can access that
 folder; allow it, or grant access later in System Settings > Privacy & Security >
-Files and Folders. A Homebrew Python upgrade can ask again.
+Files and Folders. A Homebrew Python upgrade can ask again. The LaunchAgent starts
+the job through a small shell wrapper, so a job that cannot start at all, because of
+a missing permission, interpreter, or checkout, still raises a notification.
 
 ## Install as Claude Code plugins
 
@@ -204,14 +206,17 @@ request, so each one can be reverted with one click.
 An update merges automatically only when its shape is known to be safe:
 
 - every changed file is Markdown or plain text, and none is hidden, executable,
-  a license, a nested `SKILL.md`, or a name that differs from another only in case
-  or Unicode form;
-- `SKILL.md` frontmatter is unchanged except for a simply written `description`;
+  a license, an agent instruction file (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`), or a
+  nested `SKILL.md`;
+- `SKILL.md` frontmatter is unchanged except for a one-line `description` written
+  as a plain sentence or a quoted string;
 - `SKILL.md` contains no `` !` `` or ```` ```! ```` shell command; and
 - the skill does not pre-approve tools or define hooks.
 
 Everything else, including license changes and rewritten upstream history,
-becomes one draft pull request that lists the reasons. Merge it to accept the
+becomes one draft pull request that lists the reasons. A source whose files cannot
+be vendored safely, such as names that differ only in case or Unicode form, fails
+the run with its reason while the other sources still update. Merge it to accept the
 updates; close it to reject that exact update, which is then not proposed again.
 Plain instruction changes still merge after the wait, so the rule limits what can
 run commands or grant permissions, not what skill text asks an agent to do. A

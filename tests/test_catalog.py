@@ -55,7 +55,7 @@ class CatalogTests(unittest.TestCase):
             )
             self.assertTrue(moved_skills)
             rendered = {
-                name: {"SKILL.md": f"---\nname: {name}\ndescription: Updated.\n---\n".encode()}
+                name: {"SKILL.md": f"---\nname: {name}\ndescription: Updated text.\n---\n".encode()}
                 for name in moved_skills
             }
             for name in moved_skills:

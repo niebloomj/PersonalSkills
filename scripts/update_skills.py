@@ -37,10 +37,22 @@ ZERO_SHA = "0" * 40
 NEXT_PAGE = re.compile(r'<([^>]+)>;\s*rel="next"')
 AUTOMATIC_SUFFIXES = {".md", ".txt"}
 LICENSE_NAME = re.compile(r"(?i)^(?:licen[cs]e|copying|notice)(?:[.-]|$)")
+INSTRUCTION_FILES = {"agents.md", "claude.md", "claude.local.md", "gemini.md"}
 GRANTING_SETTINGS = {"allowed-tools", "hooks"}
 SHELL_SYNTAX = ("!`", "```!")
-PLAIN_START = set("-?:,[]{}#&*!|>'\"%@`")
-BLOCK_DESCRIPTION = re.compile(r"description:[ ]*[>|][+-]?[ ]*")
+UNSAFE_CATEGORIES = {"Cc", "Cf", "Zl", "Zp"}
+ROOT_PLUGIN_COMPONENTS = (
+    ".lsp.json",
+    ".mcp.json",
+    "agents",
+    "bin",
+    "commands",
+    "hooks",
+    "monitors",
+    "output-styles",
+    "themes",
+    "workflows",
+)
 
 
 def request(url: str, *, include_headers: bool = False) -> bytes:
@@ -150,8 +162,13 @@ def path_key(path: str) -> str:
 def validate_skill(name: str, files: dict[str, bytes]) -> None:
     seen: dict[str, str] = {}
     for path in sorted(files):
-        if (other := seen.setdefault(path_key(path), path)) != path:
-            raise ValueError(f"{name}: {other} and {path} differ only in case or Unicode form")
+        if any(unicodedata.category(character) in UNSAFE_CATEGORIES for character in path):
+            raise ValueError(f"{name}: unsafe characters in path {path!r}")
+        parts = PurePosixPath(path).parts
+        for depth in range(1, len(parts) + 1):
+            node = "/".join(parts[:depth])
+            if (other := seen.setdefault(path_key(node), node)) != node:
+                raise ValueError(f"{name}: {other} and {node} differ only in case or Unicode form")
     content = files.get("SKILL.md")
     if content is None:
         raise ValueError(f"{name}: SKILL.md is missing")
@@ -340,9 +357,11 @@ def validate_local(catalog: dict[str, Any]) -> None:
         catalog
     ):
         raise ValueError(f"{MARKETPLACE_FILE} is out of date; run update_skills.py --vendor")
+    if present := [path for path in ROOT_PLUGIN_COMPONENTS if repository_path(path).exists()]:
+        raise ValueError(f"Every plugin would load these root components: {', '.join(present)}")
 
 
-def branch_head_at(repository: str, branch: str, cutoff: datetime) -> str:
+def branch_head_at(repository: str, branch: str, cutoff: datetime, pushed_at: str) -> str | None:
     ref = urllib.parse.quote(f"refs/heads/{branch}", safe="")
     url = f"{API}/repos/{repository}/activity?ref={ref}&per_page=100"
     oldest = None
@@ -351,21 +370,24 @@ def branch_head_at(repository: str, branch: str, cutoff: datetime) -> str:
             if datetime.fromisoformat(entry["timestamp"]) <= cutoff:
                 return entry["after"]
             oldest = entry
-    if oldest is None:
-        quoted = urllib.parse.quote(branch, safe="")
-        return json_request(f"{API}/repos/{repository}/commits/{quoted}")["sha"]
-    return oldest["before"]
+    if oldest is not None:
+        return oldest["before"]
+    if datetime.fromisoformat(pushed_at) > cutoff:
+        return None
+    quoted = urllib.parse.quote(branch, safe="")
+    return json_request(f"{API}/repos/{repository}/commits/{quoted}")["sha"]
 
 
 def latest_ref(repository: str, min_age_days: int = 0, now: datetime | None = None) -> str | None:
-    branch = json_request(f"{API}/repos/{repository}")["default_branch"]
+    metadata = json_request(f"{API}/repos/{repository}")
+    branch = metadata["default_branch"]
     quoted = urllib.parse.quote(branch, safe="")
     if min_age_days:
         cutoff = (now or datetime.now(UTC)) - timedelta(days=min_age_days)
-        sha = branch_head_at(repository, branch, cutoff)
+        sha = branch_head_at(repository, branch, cutoff, metadata["pushed_at"])
     else:
         sha = json_request(f"{API}/repos/{repository}/commits/{quoted}")["sha"]
-    if sha == ZERO_SHA:
+    if sha is None or sha == ZERO_SHA:
         return None
     if not isinstance(sha, str) or not SHA_RE.fullmatch(sha):
         raise ValueError(f"{repository}: GitHub returned an invalid commit SHA")
@@ -414,9 +436,7 @@ def top_level_settings(text: str) -> dict[str, list[str]]:
     settings: dict[str, list[str]] = {}
     key = ""
     for line in text.splitlines():
-        if line.startswith("#"):
-            continue
-        if line and not line[0].isspace() and not line.startswith("-"):
+        if line and not line[0].isspace() and not line.startswith(("-", "#")):
             key = line.split(":", 1)[0].strip().strip("\"'")
         settings.setdefault(key, []).append(line)
     return settings
@@ -433,7 +453,11 @@ def changed_settings(old: str, new: str, descriptive: set[str]) -> list[str]:
 
 def safe_text(text: str) -> bool:
     return "---" not in text and not any(
-        unicodedata.category(character) in {"Cc", "Cf", "Zl", "Zp"} and character != "\n"
+        character != "\n"
+        and (
+            unicodedata.category(character) in UNSAFE_CATEGORIES
+            or (unicodedata.category(character) == "Zs" and character != " ")
+        )
         for character in text
     )
 
@@ -446,7 +470,8 @@ def safe_scalar(value: str) -> bool:
     if value[0] == "'":
         return re.fullmatch(r"'(?:[^']|'')*'", value) is not None
     return (
-        value[0] not in PLAIN_START
+        value[0].isalpha()
+        and " " in value
         and ": " not in value
         and " #" not in value
         and not value.endswith(":")
@@ -455,14 +480,14 @@ def safe_scalar(value: str) -> bool:
 
 def simple_description(front: str) -> bool:
     lines = top_level_settings(front).get("description", [])
-    while lines and not lines[-1].strip():
+    while lines and lines[-1] == "":
         lines = lines[:-1]
-    if not safe_text(front) or not lines or not lines[0].startswith("description:"):
-        return False
-    if BLOCK_DESCRIPTION.fullmatch(lines[0]):
-        body = lines[1:]
-        return bool(body) and all(not line or line.startswith(" ") for line in body)
-    return len(lines) == 1 and safe_scalar(lines[0].removeprefix("description:").strip())
+    return (
+        safe_text(front)
+        and len(lines) == 1
+        and lines[0].startswith("description: ")
+        and safe_scalar(lines[0].removeprefix("description: ").strip(" "))
+    )
 
 
 def review_reasons(
@@ -496,6 +521,8 @@ def review_reasons(
             reasons.append(f"{prefix}/{path}: adds or changes an executable file")
         elif LICENSE_NAME.match(pure.name):
             reasons.append(f"{prefix}/{path}: changes license text")
+        elif path_key(pure.name) in INSTRUCTION_FILES:
+            reasons.append(f"{prefix}/{path}: adds or changes an agent instruction file")
         elif path != "SKILL.md" and path_key(pure.name) == "skill.md":
             reasons.append(f"{prefix}/{path}: adds or changes a nested SKILL.md")
     old_skill, new_skill = old_files["SKILL.md"], new_files["SKILL.md"]
@@ -730,6 +757,60 @@ def vendor_catalog(catalog: dict[str, Any]) -> None:
             raise
 
 
+def source_change(
+    catalog: dict[str, Any],
+    repository: str,
+    details: dict[str, Any],
+    tree_cache: dict[tuple[str, str], dict[str, Any]],
+    min_age_days: int,
+    now: datetime | None,
+) -> tuple[str, dict[str, dict[str, bytes]], list[str], bytes | None] | None:
+    candidate = latest_ref(repository, min_age_days, now=now)
+    if candidate is None:
+        return None
+    relation = pin_relation(repository, details["ref"], candidate)
+    if relation in {"identical", "behind"}:
+        return None
+    updates: dict[str, dict[str, bytes]] = {}
+    reasons: list[str] = []
+    for name, skill in catalog["skills"].items():
+        if skill.get("source") != repository:
+            continue
+        files = render_skill(
+            name,
+            skill,
+            fetch_skill(
+                repository,
+                candidate,
+                skill["upstreamPath"],
+                skill.get("upstreamName", name),
+                tree_cache,
+                exclude=skill.get("exclude"),
+            ),
+        )
+        old_files = current_files(name)
+        old_executables = current_executables(name)
+        new_executables = upstream_executables(
+            tree_cache.get((repository, candidate), {}), skill["upstreamPath"]
+        ) & set(files)
+        if files != old_files or new_executables != old_executables:
+            updates[name] = files
+            reasons.extend(review_reasons(name, old_files, files, old_executables, new_executables))
+    license_data = read_source(repository, candidate, details["licensePath"])
+    license_data.decode("utf-8")
+    license_file = repository_path(details["licenseFile"])
+    if not license_file.is_file():
+        raise ValueError(f"Missing current license file: {details['licenseFile']}")
+    license_changed = license_data != license_file.read_bytes()
+    if not updates and not license_changed:
+        return None
+    if license_changed:
+        reasons.append(f"{repository}: license text changed")
+    if relation != "ahead":
+        reasons.append(f"{repository}: upstream history no longer contains the pinned commit")
+    return candidate, updates, reasons, license_data if license_changed else None
+
+
 def update_catalog(
     catalog: dict[str, Any],
     *,
@@ -741,54 +822,18 @@ def update_catalog(
     tree_cache: dict[tuple[str, str], dict[str, Any]] = {}
     skill_updates: dict[str, dict[str, bytes]] = {}
     license_updates: dict[str, bytes] = {}
-    report: dict[str, Any] = {"clean": {}, "review": {}, "written": []}
+    report: dict[str, Any] = {"clean": {}, "errors": {}, "review": {}, "written": []}
 
     for repository, details in catalog["sources"].items():
-        candidate = latest_ref(repository, min_age_days, now=now)
-        if candidate is None:
+        try:
+            change = source_change(catalog, repository, details, tree_cache, min_age_days, now)
+        except (OSError, ValueError, KeyError) as error:
+            report["errors"][repository] = str(error)
+            print(f"Could not check {repository}: {error}", file=sys.stderr)
             continue
-        relation = pin_relation(repository, details["ref"], candidate)
-        if relation in {"identical", "behind"}:
+        if change is None:
             continue
-        updates: dict[str, dict[str, bytes]] = {}
-        reasons: list[str] = []
-        for name, skill in catalog["skills"].items():
-            if skill.get("source") != repository:
-                continue
-            files = render_skill(
-                name,
-                skill,
-                fetch_skill(
-                    repository,
-                    candidate,
-                    skill["upstreamPath"],
-                    skill.get("upstreamName", name),
-                    tree_cache,
-                    exclude=skill.get("exclude"),
-                ),
-            )
-            old_files = current_files(name)
-            old_executables = current_executables(name)
-            new_executables = upstream_executables(
-                tree_cache.get((repository, candidate), {}), skill["upstreamPath"]
-            ) & set(files)
-            if files != old_files or new_executables != old_executables:
-                updates[name] = files
-                reasons.extend(
-                    review_reasons(name, old_files, files, old_executables, new_executables)
-                )
-        license_data = read_source(repository, candidate, details["licensePath"])
-        license_data.decode("utf-8")
-        license_file = repository_path(details["licenseFile"])
-        if not license_file.is_file():
-            raise ValueError(f"Missing current license file: {details['licenseFile']}")
-        license_changed = license_data != license_file.read_bytes()
-        if not updates and not license_changed:
-            continue
-        if license_changed:
-            reasons.append(f"{repository}: license text changed")
-        if relation != "ahead":
-            reasons.append(f"{repository}: upstream history no longer contains the pinned commit")
+        candidate, updates, reasons, license_data = change
         entry: dict[str, Any] = {"ref": candidate, "skills": sorted(updates)}
         if reasons:
             entry["reasons"] = reasons
@@ -797,7 +842,7 @@ def update_catalog(
             continue
         details["ref"] = candidate
         skill_updates.update(updates)
-        if license_changed:
+        if license_data is not None:
             license_updates[details["licenseFile"]] = license_data
         report["written"].append(repository)
 

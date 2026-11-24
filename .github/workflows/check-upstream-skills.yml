@@ -3,6 +3,7 @@ name: Check upstream skills
 on:
   pull_request:
     paths:
+      - .claude-plugin/**
       - catalog.json
       - licenses/**
       - scripts/**
@@ -12,6 +13,7 @@ on:
   push:
     branches: [main]
     paths:
+      - .claude-plugin/**
       - catalog.json
       - licenses/**
       - scripts/**
@@ -172,3 +174,10 @@ jobs:
             gh pr edit "$number" --add-label superseded
             gh pr close "$number" --delete-branch --comment "Superseded by $url."
           done
+      - name: Fail if any source could not be checked
+        run: |
+          if [ "$(jq '.errors | length' "$RUNNER_TEMP/clean.json")" -gt 0 ]; then
+            jq -r '.errors | to_entries[] | "::error::\(.key | tojson): \(.value | tojson)"' \
+              "$RUNNER_TEMP/clean.json"
+            exit 1
+          fi
