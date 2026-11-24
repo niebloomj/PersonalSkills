@@ -265,6 +265,10 @@
       "source": "mattpocock/skills",
       "upstreamPath": "skills/engineering/to-tickets"
     },
+    "triage": {
+      "source": "mattpocock/skills",
+      "upstreamPath": "skills/engineering/triage"
+    },
     "typesafe-ai": {
       "source": "typesafe-ai/skills",
       "upstreamPath": "skills/typesafe-ai"
