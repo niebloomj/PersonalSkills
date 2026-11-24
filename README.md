@@ -239,7 +239,8 @@ manual run can use a shorter waiting period.
 Macs that run the sync job pick up merged updates on its next run: within six
 hours with the LaunchAgent, or the next day from a daily script. Elsewhere, pull
 the catalog and run the sync/audit commands. Do not refresh this collection
-through separate upstream installers.
+through separate upstream installers. Dependabot separately opens a monthly pull
+request when one of the workflow's pinned GitHub Actions has a new release.
 
 ```sh
 python3 -m unittest discover -s tests -v
