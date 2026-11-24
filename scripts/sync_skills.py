@@ -17,7 +17,13 @@ from pathlib import Path
 from typing import Any
 
 from agent_plugins import disable_duplicate_superpowers
-from update_skills import repository_path, validate_previous_names, validate_skill
+from update_skills import (
+    ignored_paths,
+    is_ignored,
+    repository_path,
+    validate_previous_names,
+    validate_skill,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 STATE = Path(".local/state/personal-skills")
@@ -113,6 +119,7 @@ def load_skills(repository: Path) -> dict[str, Any]:
     catalog = read_json(repository / "catalog.json", {})
     if not isinstance(catalog.get("skills"), dict) or not catalog["skills"]:
         raise ValueError("The repository has no skill catalog")
+    ignored = ignored_paths(repository)
     for name in catalog["skills"]:
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", name):
             raise ValueError(f"Invalid catalog skill ID: {name}")
@@ -122,6 +129,8 @@ def load_skills(repository: Path) -> dict[str, Any]:
             raise ValueError(f"Missing or unsafe catalog skill: {name}")
         files = {}
         for path in folder.rglob("*"):
+            if is_ignored(path, repository, ignored):
+                continue
             if path.is_symlink():
                 raise ValueError(f"Catalog companions cannot be symlinks: {path}")
             if path.is_file():

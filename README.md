@@ -20,7 +20,8 @@ python3 scripts/sync_skills.py --audit
 The first command previews changes without modifying installed skills or profile data. `--apply` backs up
 existing copies and retired entries before replacing them. `--audit` exits
 nonzero for unmanaged, divergent, retired, or unexpectedly nested global skills,
-and for a skipped Codex plugin edit.
+and for a skipped Codex plugin edit. Untracked files that git ignores, such as
+Python caches and `.DS_Store`, don't count; committed files are always checked.
 Re-running an unchanged installation is a no-op.
 
 The installer creates one definition per personal skill:

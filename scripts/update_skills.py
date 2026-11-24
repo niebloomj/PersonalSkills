@@ -332,9 +332,35 @@ def load_catalog() -> dict[str, Any]:
     return catalog
 
 
+def ignored_paths(root: Path) -> set[str]:
+    command = ["git", "-C", str(root), "ls-files", "-z", "--others", "--ignored"]
+    command += ["--exclude-standard", "--directory", "--", "skills"]
+    try:
+        result = subprocess.run(command, capture_output=True, check=False)
+    except OSError:
+        return set()
+    if result.returncode:
+        return set()
+    return {
+        entry for entry in result.stdout.decode("utf-8", "surrogateescape").split("\0") if entry
+    }
+
+
+def is_ignored(path: Path, root: Path, ignored: set[str]) -> bool:
+    relative = path.relative_to(root).as_posix()
+    return relative in ignored or any(
+        entry.endswith("/") and f"{relative}/".startswith(entry) for entry in ignored
+    )
+
+
 def validate_local(catalog: dict[str, Any]) -> None:
+    ignored = ignored_paths(ROOT)
     expected_dirs = {name for name in catalog["skills"]}
-    actual_dirs = {path.name for path in repository_path("skills").iterdir() if path.is_dir()}
+    actual_dirs = {
+        path.name
+        for path in repository_path("skills").iterdir()
+        if path.is_dir() and not is_ignored(path, ROOT, ignored)
+    }
     if actual_dirs != expected_dirs:
         raise ValueError(
             f"Catalog folder mismatch; missing={sorted(expected_dirs - actual_dirs)}, extra={sorted(actual_dirs - expected_dirs)}"
@@ -343,6 +369,8 @@ def validate_local(catalog: dict[str, Any]) -> None:
         folder = repository_path(f"skills/{name}")
         files: dict[str, bytes] = {}
         for path in folder.rglob("*"):
+            if is_ignored(path, ROOT, ignored):
+                continue
             if path.is_symlink():
                 raise ValueError(f"{name}: symlinks are not permitted in the catalog")
             if path.is_file():
@@ -409,10 +437,14 @@ def pin_relation(repository: str, current: str, candidate: str) -> str:
 
 def current_executables(name: str) -> set[str]:
     folder = repository_path(f"skills/{name}")
+    ignored = ignored_paths(ROOT)
     return {
         path.relative_to(folder).as_posix()
         for path in folder.rglob("*")
-        if path.is_file() and not path.is_symlink() and path.stat().st_mode & 0o111
+        if path.is_file()
+        and not path.is_symlink()
+        and path.stat().st_mode & 0o111
+        and not is_ignored(path, ROOT, ignored)
     }
 
 
@@ -627,7 +659,10 @@ def current_files(name: str) -> dict[str, bytes]:
     files: dict[str, bytes] = {}
     if not folder.is_dir() or folder.is_symlink():
         raise ValueError(f"Missing or unsafe catalog folder: skills/{name}")
+    ignored = ignored_paths(ROOT)
     for path in folder.rglob("*"):
+        if is_ignored(path, ROOT, ignored):
+            continue
         if path.is_symlink():
             raise ValueError(f"{name}: symlinks are not permitted in the catalog")
         if path.is_file():

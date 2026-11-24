@@ -38,6 +38,21 @@ class CatalogTests(unittest.TestCase):
             "catalog.json is tool-written; run `python3 scripts/update_skills.py --vendor`",
         )
 
+    def test_local_checks_skip_files_git_ignores(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            (root / ".gitignore").write_text("__pycache__/\n")
+            folder = root / "skills/demo"
+            (folder / "scripts/__pycache__").mkdir(parents=True)
+            (folder / "SKILL.md").write_text("---\nname: demo\ndescription: Demo skill.\n---\n")
+            cache = folder / "scripts/__pycache__/tool.cpython-312.pyc"
+            cache.write_bytes(b"\0compiled")
+            cache.chmod(0o755)
+            with patch.object(update_skills, "ROOT", root):
+                self.assertEqual(set(update_skills.current_files("demo")), {"SKILL.md"})
+                self.assertEqual(update_skills.current_executables("demo"), set())
+
     def test_skill_scanner_asks_before_running_shell_commands(self):
         skill = (Path(__file__).resolve().parents[1] / "skills/skill-scanner/SKILL.md").read_bytes()
         settings = update_skills.top_level_settings(update_skills.frontmatter(skill))
