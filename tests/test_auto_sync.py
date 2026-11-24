@@ -332,6 +332,43 @@ class SyncTests(Isolated):
         self.assertEqual((code, self.notices), (auto_sync.NOTIFIED, ["Skill sync crashed: boom"]))
         self.assertIn("Traceback", output)
 
+    def backups(self):
+        root = self.home / sync_skills.STATE / "backups"
+        now = datetime.now(UTC).timestamp()
+        names = [f"20261001T00000{index}Z-0000000{index}" for index in range(5)]
+        names += [f"cc-switch-{index:032x}" for index in range(2)]
+        for days, name in enumerate(names, start=40):
+            (root / name).mkdir(parents=True)
+            os.utime(root / name, (now - days * 86400,) * 2)
+        (root / "20261124T000000Z-0000000f").mkdir()
+        (root / "curation-20261001T000000Z-deadbeef").mkdir()
+        os.utime(root / "curation-20261001T000000Z-deadbeef", (now - 60 * 86400,) * 2)
+        return root
+
+    def test_a_clean_run_prunes_old_automatic_backups_but_keeps_the_newest(self):
+        root = self.backups()
+        code, output = self.sync()
+        kept = sorted(path.name for path in root.iterdir())
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            kept,
+            [
+                "20261001T000000Z-00000000",
+                "20261001T000001Z-00000001",
+                "20261001T000002Z-00000002",
+                "20261001T000003Z-00000003",
+                "20261124T000000Z-0000000f",
+                "curation-20261001T000000Z-deadbeef",
+            ],
+        )
+        self.assertIn("Pruned 3 automatic backup(s) older than 30 days.", output)
+
+    def test_audit_problems_keep_every_backup(self):
+        root = self.backups()
+        self.report = {"problems": ["Unmanaged skill: /h/.claude/skills/stray"], "warnings": []}
+        self.sync()
+        self.assertEqual(len(list(root.iterdir())), 9)
+
 
 class FreshHomeTests(Isolated):
     def test_the_real_catalog_links_into_a_fresh_home_and_audits_clean(self):

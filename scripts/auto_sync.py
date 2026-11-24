@@ -33,6 +33,9 @@ GIT_TIMEOUT_SECONDS = 120
 NOTIFIED = 3
 BLOCKED_NOTICE = timedelta(hours=24)
 CONTENT_PATHS = ("skills/", "licenses/", "catalog.json", ".claude-plugin/marketplace.json")
+BACKUP_NAME = re.compile(r"\d{8}T\d{6}Z(?:-[0-9a-f]{8})?|cc-switch-[0-9a-f]{32}")
+BACKUP_DAYS = 30
+BACKUPS_KEPT = 5
 BOOTSTRAP_ATTEMPTS = 5
 FIRST_RUN_SECONDS = 180
 WRAPPER = """"$1" "$2" run --home "$3"
@@ -185,6 +188,26 @@ def describe(action: dict[str, Any]) -> str:
     )
 
 
+def prune_backups(home: Path, now: datetime) -> int:
+    root = home / sync_skills.STATE / "backups"
+    if not root.is_dir():
+        return 0
+    automatic = sorted(
+        (
+            path
+            for path in root.iterdir()
+            if path.is_dir() and not path.is_symlink() and BACKUP_NAME.fullmatch(path.name)
+        ),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    cutoff = (now - timedelta(days=BACKUP_DAYS)).timestamp()
+    expired = [path for path in automatic[BACKUPS_KEPT:] if path.stat().st_mtime < cutoff]
+    for path in expired:
+        shutil.rmtree(path)
+    return len(expired)
+
+
 def sync(repository: Path, home: Path) -> int:
     preview = sync_skills.synchronize(repository, home)
     pending = [action for action in preview["actions"] if action["kind"] != "skipped"]
@@ -217,6 +240,8 @@ def sync(repository: Path, home: Path) -> int:
     if report["problems"]:
         notify(f"The skill audit found {len(report['problems'])} problem(s). See {log_path(home)}.")
         return NOTIFIED
+    if pruned := prune_backups(home, datetime.now(UTC)):
+        log(f"Pruned {pruned} automatic backup(s) older than {BACKUP_DAYS} days.")
     return 0
 
 

@@ -64,7 +64,9 @@ your Mac unattended. When CC-Switch manages skills, link changes
 wait until CC-Switch is fully quit. Waiting changes, audit problems, and errors
 raise a macOS notification, as does syncing that stays blocked for more than a
 day (at most once a day). Every run is logged to
-`~/.local/state/personal-skills/auto-sync.log`. `python3 scripts/auto_sync.py run`
+`~/.local/state/personal-skills/auto-sync.log`. After a run whose audit finds no
+problems, it deletes automatic backups older than 30 days but always keeps the five
+newest; manually named folders, such as curation receipts, are never removed. `python3 scripts/auto_sync.py run`
 performs a run immediately; unlike the commands above, it applies changes without
 a preview.
 
