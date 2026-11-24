@@ -339,7 +339,7 @@
       "license": "FSL-1.1-Apache-2.0",
       "licenseFile": "licenses/getsentry-toolkit-cli-LICENSE.md",
       "licensePath": "packages/cli/LICENSE.md",
-      "ref": "10149b786037c9535ede1a2017dd488e211f6e73"
+      "ref": "5fe9f23b9abed9323c1f44cab26f50110f103959"
     },
     "mattpocock/skills": {
       "license": "MIT",
