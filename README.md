@@ -54,6 +54,10 @@ python3 scripts/auto_sync.py install --apply  # install it; it also runs once no
 python3 scripts/auto_sync.py uninstall --apply
 ```
 
+Instead of the LaunchAgent, you can call `python3 scripts/auto_sync.py run` from a
+script you already run every day, such as a morning routine. It runs the same
+checks as the LaunchAgent.
+
 A run leaves the checkout alone when it is on another branch or has uncommitted
 changes to tracked files. It only fast-forwards, so a `main` that has diverged
 from `origin/main` stops the run. It also fast-forwards only skill content
@@ -232,8 +236,9 @@ Plain instruction changes still merge after the wait, so the rule limits what ca
 run commands or grant permissions, not what skill text asks an agent to do. A
 manual run can use a shorter waiting period.
 
-Macs with the sync LaunchAgent pick up merged updates within six hours. Elsewhere,
-pull the catalog and run the sync/audit commands. Do not refresh this collection
+Macs that run the sync job pick up merged updates on its next run: within six
+hours with the LaunchAgent, or the next day from a daily script. Elsewhere, pull
+the catalog and run the sync/audit commands. Do not refresh this collection
 through separate upstream installers.
 
 ```sh
