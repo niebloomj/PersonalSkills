@@ -53,10 +53,13 @@ class CatalogTests(unittest.TestCase):
                 self.assertEqual(set(update_skills.current_files("demo")), {"SKILL.md"})
                 self.assertEqual(update_skills.current_executables("demo"), set())
 
-    def test_skill_scanner_asks_before_running_shell_commands(self):
-        skill = (Path(__file__).resolve().parents[1] / "skills/skill-scanner/SKILL.md").read_bytes()
-        settings = update_skills.top_level_settings(update_skills.frontmatter(skill))
-        self.assertNotIn("Bash", " ".join(settings.get("allowed-tools", [])))
+    def test_skills_that_read_untrusted_files_ask_before_running_shell_commands(self):
+        skills = Path(__file__).resolve().parents[1] / "skills"
+        for name in ("agentic-actions-auditor", "gha-security-review", "skill-scanner"):
+            with self.subTest(name):
+                skill = (skills / name / "SKILL.md").read_bytes()
+                settings = update_skills.top_level_settings(update_skills.frontmatter(skill))
+                self.assertNotIn("Bash", " ".join(settings.get("allowed-tools", [])))
 
     def test_upstream_update_changes_only_the_moved_pin(self):
         repository = Path(__file__).resolve().parents[1]

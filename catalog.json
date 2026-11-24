@@ -25,6 +25,9 @@
   "schemaVersion": 1,
   "skills": {
     "agentic-actions-auditor": {
+      "replaceMarkdown": {
+        "allowed-tools: Read Grep Glob Bash": "allowed-tools: Read Grep Glob"
+      },
       "source": "trailofbits/skills",
       "upstreamPath": "plugins/agentic-actions-auditor/skills/agentic-actions-auditor"
     },
@@ -101,6 +104,9 @@
       "upstreamPath": "skills/finishing-a-development-branch"
     },
     "gha-security-review": {
+      "replaceMarkdown": {
+        "allowed-tools: Read Grep Glob Bash Task": "allowed-tools: Read Grep Glob Task"
+      },
       "source": "getsentry/skills",
       "upstreamPath": "skills/gha-security-review"
     },
