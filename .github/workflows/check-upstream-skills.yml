@@ -3,22 +3,32 @@ name: Check upstream skills
 on:
   pull_request:
     paths:
+      - .claude-plugin/**
       - catalog.json
       - licenses/**
-      - scripts/update_skills.py
+      - scripts/**
+      - tests/**
       - skills/**
       - .github/workflows/check-upstream-skills.yml
   push:
     branches: [main]
     paths:
+      - .claude-plugin/**
       - catalog.json
       - licenses/**
-      - scripts/update_skills.py
+      - scripts/**
+      - tests/**
       - skills/**
       - .github/workflows/check-upstream-skills.yml
   schedule:
     - cron: "17 10 * * 1"
   workflow_dispatch:
+    inputs:
+      min_age_days:
+        description: Only adopt upstream commits at least this many days old
+        required: false
+        default: "7"
+        type: string
 
 permissions:
   contents: read
@@ -39,8 +49,9 @@ jobs:
           python-version: "3.12"
       - name: Validate the pinned skill catalog
         run: |
+          python -m unittest discover -s tests -v
           python scripts/update_skills.py --check
-          git diff --check -- . ':(exclude)licenses/**'
+          git diff --check -- . ':(exclude)licenses/**' ':(exclude)skills/**'
       - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         name: Verify upstream content matches its pinned commits
         env:
@@ -54,65 +65,119 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+      MIN_AGE_DAYS: ${{ inputs.min_age_days }}
+      RUN_LABEL: ${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: main
+          persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
-      - id: open_pr
-        name: Wait for any existing catalog update review
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Prepare the automation identity
         run: |
-          open_prs=$(gh pr list --state open --base main --json headRefName --jq '[.[] | select(.headRefName | startswith("automation/upstream-skills-"))] | length')
-          if [ "$open_prs" -gt 0 ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "An upstream-skills update PR is already open; waiting for its review."
-          fi
-      - if: steps.open_pr.outputs.skip != 'true'
-        name: Check pinned upstream copies
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python scripts/update_skills.py
-      - if: steps.open_pr.outputs.skip != 'true'
-        name: Validate refreshed catalog
-        run: |
-          python scripts/update_skills.py --check
-          git diff --check -- . ':(exclude)licenses/**'
-      - if: steps.open_pr.outputs.skip != 'true'
-        name: Open a reviewable update pull request
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_RUN_ID: ${{ github.run_id }}
-          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
-        run: |
-          if git diff --quiet; then
-            echo "No upstream changes to propose."
-            exit 0
-          fi
-          branch="automation/upstream-skills-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          git switch -c "$branch"
+          gh auth setup-git
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add catalog.json licenses/ skills/
-          git commit -m "chore: update curated upstream skills"
+      - name: Close superseded update pull requests
+        run: |
+          gh pr list --state open --base main --json number,headRefName,isCrossRepository \
+            --jq '.[] | select((.isCrossRepository | not) and (.headRefName
+              | startswith("automation/upstream-skills-") or startswith("automation/upstream-updates-")))
+              | .number' |
+          while read -r number; do
+            gh pr close "$number" --delete-branch --comment \
+              "Superseded by a newer run of the upstream updater, which merges safe updates itself."
+          done
+      - name: Apply updates that pass the automatic checks
+        run: >-
+          python scripts/update_skills.py --min-age-days "${MIN_AGE_DAYS:-7}"
+          --only clean --report "$RUNNER_TEMP/clean.json"
+      - name: Verify and merge them
+        run: |
+          if [ "$(jq '.written | length' "$RUNNER_TEMP/clean.json")" -eq 0 ]; then
+            echo "No updates to merge automatically."
+            exit 0
+          fi
+          python -m unittest discover -s tests -v
+          python scripts/update_skills.py --check
+          python scripts/update_skills.py --verify-pins
+          git diff --check -- . ':(exclude)licenses/**' ':(exclude)skills/**'
+          branch="automation/upstream-updates-$RUN_LABEL"
+          git switch -c "$branch"
+          git add catalog.json licenses/ skills/ .claude-plugin/
+          git commit -m "chore: update upstream skills"
           git push origin "$branch"
-          gh pr create \
-            --base main \
-            --head "$branch" \
-            --title "Update curated upstream skills" \
-            --body-file - <<'BODY'
-          ## Summary
-
-          Refresh selected skill files and license notices from their pinned upstream repositories. The diff is untrusted third-party agent instructions; review it before merging. This workflow does not merge its own pull request.
-
-          ## Verification
-
-          - Validated each catalog path and skill name against upstream.
-          - Preserved source license files.
-          - Validated the complete local catalog.
-
-          This pull request was opened automatically by the GitHub Actions workflow on behalf of the repository owner.
-          BODY
+          jq -r '"Merged automatically after tests, pin verification, and policy checks passed.\n\n"
+            + ([.clean | to_entries[] | "- `\(.key)` → `\(.value.ref)`: \(.value.skills | join(", "))"]
+            | join("\n"))' "$RUNNER_TEMP/clean.json" > "$RUNNER_TEMP/clean.md"
+          gh pr create --base main --head "$branch" --title "Update upstream skills" \
+            --body-file "$RUNNER_TEMP/clean.md"
+          for attempt in 1 2 3; do
+            gh pr merge "$branch" --repo "$GITHUB_REPOSITORY" --squash --delete-branch && exit 0
+            state="$(gh pr view "$branch" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
+            [ "$state" = MERGED ] && exit 0
+            sleep $((attempt * 10))
+          done
+          exit 1
+      - name: Propose updates that need review
+        run: |
+          if [ "$(jq '.review | length' "$RUNNER_TEMP/clean.json")" -eq 0 ]; then
+            echo "No updates need review."
+            exit 0
+          fi
+          git fetch origin main
+          git switch --force-create review-work origin/main
+          python scripts/update_skills.py --min-age-days "${MIN_AGE_DAYS:-7}" \
+            --only review --report "$RUNNER_TEMP/review.json"
+          if [ "$(jq '.written | length' "$RUNNER_TEMP/review.json")" -eq 0 ]; then
+            echo "Nothing left to review."
+            exit 0
+          fi
+          python -m unittest discover -s tests -v
+          python scripts/update_skills.py --check
+          python scripts/update_skills.py --verify-pins
+          digest="$(jq -cS .review "$RUNNER_TEMP/review.json" | sha256sum | cut -c1-12)"
+          branch="automation/upstream-review-$digest"
+          proposed="$(gh pr list --state all --head "$branch" --json isCrossRepository,labels \
+            --jq '[.[] | select((.isCrossRepository | not)
+              and ([.labels[].name] | index("superseded") | not))] | length')"
+          if [ "$proposed" -gt 0 ]; then
+            echo "This exact update was already proposed on $branch."
+            exit 0
+          fi
+          git switch -c "$branch"
+          git add catalog.json licenses/ skills/ .claude-plugin/
+          git commit -m "chore: propose upstream skill updates for review"
+          git push --force origin "$branch"
+          jq -r '"These upstream updates need your review: they could run commands, change agent"
+            + " settings or permissions, change a license, or come from rewritten history.\n\n"
+            + ([.review | to_entries[] | "- `\(.key)` → `\(.value.ref)`\n"
+              + (.value.reasons | map("  - " + .) | join("\n"))] | join("\n"))
+            + "\n\nMerge to accept. Close to reject this exact update; it will not be proposed again."' \
+            "$RUNNER_TEMP/review.json" > "$RUNNER_TEMP/review.md"
+          url="$(gh pr create --draft --base main --head "$branch" \
+            --title "Review upstream skill updates" --body-file "$RUNNER_TEMP/review.md")"
+          gh label create superseded --color ededed --force \
+            --description "Replaced by a newer automated proposal"
+          gh pr list --state open --base main --json number,headRefName,isCrossRepository \
+            --jq ".[] | select((.isCrossRepository | not) and .headRefName != \"$branch\"
+              and (.headRefName | startswith(\"automation/upstream-review-\"))) | .number" |
+          while read -r number; do
+            gh pr edit "$number" --add-label superseded
+            gh pr close "$number" --delete-branch --comment "Superseded by $url."
+          done
+      - name: Fail if any source could not be checked
+        run: |
+          if [ "$(jq '.errors | length' "$RUNNER_TEMP/clean.json")" -gt 0 ]; then
+            jq -r '.errors | to_entries[] | "::error::\(.key | tojson): \(.value | tojson)"' \
+              "$RUNNER_TEMP/clean.json"
+            exit 1
+          fi
