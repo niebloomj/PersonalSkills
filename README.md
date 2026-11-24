@@ -247,11 +247,13 @@ PRs change only the pins that moved. After editing it by hand, run `--vendor`,
 which also regenerates the plugin marketplace.
 
 Renames (`upstreamName`), explicit invocation (`manual`), Markdown reference
-rewrites (`replaceMarkdown`), and optional gallery exclusions (`exclude`) are
+rewrites (`replaceMarkdown`), and file exclusions (`exclude`) are
 recorded transformations, reproduced by imports, verification, and updates.
 Codex display names and manual-only policy are normalized for portable discovery.
 The GPT Image 2 example gallery is excluded: its images are linked remotely and
-are not dependencies of the included generation helpers.
+are not dependencies of the included generation helpers. `humanizer` is published
+as a whole repository, so only its `SKILL.md` and Codex metadata are vendored; its
+plugin manifests, CI files, `AGENTS.md`, and maintainer files are excluded.
 
 ## Attribution and licenses
 

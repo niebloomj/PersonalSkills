@@ -123,6 +123,21 @@
       "source": "mattpocock/skills",
       "upstreamPath": "skills/productivity/handoff"
     },
+    "humanizer": {
+      "exclude": [
+        ".claude-plugin/*",
+        ".cursor-plugin/*",
+        ".github/*/*",
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "LICENSE",
+        "README.md",
+        "package.json",
+        "scripts/*"
+      ],
+      "source": "blader/humanizer",
+      "upstreamPath": "."
+    },
     "i-have-adhd": {
       "source": "ayghri/i-have-adhd",
       "upstreamPath": "skills/i-have-adhd"
@@ -206,6 +221,10 @@
     "sharp-edges": {
       "source": "trailofbits/skills",
       "upstreamPath": "plugins/sharp-edges/skills/sharp-edges"
+    },
+    "skill-scanner": {
+      "source": "getsentry/skills",
+      "upstreamPath": "skills/skill-scanner"
     },
     "standards-spec-review": {
       "manual": true,
@@ -302,6 +321,12 @@
       "licenseFile": "licenses/ayghri-i-have-adhd-LICENSE",
       "licensePath": "LICENSE",
       "ref": "1ecea1993b7fce257ffbd686c070948b5e07eda6"
+    },
+    "blader/humanizer": {
+      "license": "MIT",
+      "licenseFile": "licenses/blader-humanizer-LICENSE",
+      "licensePath": "LICENSE",
+      "ref": "b48c832f0f809c1b5658edbb838c2521b72f2413"
     },
     "coreyhaines31/marketingskills": {
       "license": "MIT",

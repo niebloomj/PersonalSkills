@@ -218,6 +218,16 @@
       ]
     },
     {
+      "name": "humanizer",
+      "description": "Rewrite AI-sounding text so it reads like the writer without changing what it says. Use when editing or reviewing prose for AI tells: not-X-but-Y contrasts, one-line closers, staged openers, forced triads, dashes everywhere, inflated claims, sales language, stock AI words, bold labels, or filler.",
+      "license": "MIT",
+      "repository": "https://github.com/blader/humanizer",
+      "source": "./",
+      "skills": [
+        "./skills/humanizer"
+      ]
+    },
+    {
       "name": "i-have-adhd",
       "description": "Shape output for a reader with ADHD: lead with the next action, number multi-step work, restate state across turns, suppress tangents, give specific time estimates, make wins visible. Invoke with /i-have-adhd; stays on until \"stop adhd mode\".",
       "license": "MIT",
@@ -385,6 +395,16 @@
       "source": "./",
       "skills": [
         "./skills/sharp-edges"
+      ]
+    },
+    {
+      "name": "skill-scanner",
+      "description": "Scan agent skills for security issues. Use when asked to \"scan a skill\", \"audit a skill\", \"review skill security\", \"check skill for injection\", \"validate SKILL.md\", or assess whether an agent skill is safe to install. Checks for prompt injection, malicious scripts, excessive permissions, secret exposure, and supply chain risks.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/getsentry/skills",
+      "source": "./",
+      "skills": [
+        "./skills/skill-scanner"
       ]
     },
     {
