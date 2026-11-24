@@ -184,6 +184,10 @@ approval, scope, and delegation rules still take precedence over imported workfl
 adhd mode". Only its skill folder is vendored; its upstream always-on hooks and
 editor plugins are not included.
 
+`skill-scanner` reads skills that may be hostile, so its upstream pre-approval of
+`Bash` is removed and Claude Code asks before a scan runs a command. A test fails
+if an update brings the grant back.
+
 ## Add your own skill
 
 Create `skills/my-workflow/SKILL.md` with `name: my-workflow` and a useful

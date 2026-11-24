@@ -224,6 +224,9 @@
       "upstreamPath": "plugins/sharp-edges/skills/sharp-edges"
     },
     "skill-scanner": {
+      "replaceMarkdown": {
+        "allowed-tools: Read Grep Glob Bash": "allowed-tools: Read Grep Glob"
+      },
       "source": "getsentry/skills",
       "upstreamPath": "skills/skill-scanner"
     },
