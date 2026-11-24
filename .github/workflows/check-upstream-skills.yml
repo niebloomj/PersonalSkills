@@ -52,7 +52,7 @@ jobs:
           python -m unittest discover -s tests -v
           python scripts/update_skills.py --check
           git diff --check -- . ':(exclude)licenses/**' ':(exclude)skills/**'
-      - if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+      - if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         name: Verify upstream content matches its pinned commits
         env:
           GITHUB_TOKEN: ${{ github.token }}

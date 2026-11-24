@@ -13,6 +13,13 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('branch="automation/upstream-updates-$RUN_LABEL"', self.workflow)
         self.assertIn('branch="automation/upstream-review-$digest"', self.workflow)
 
+    def test_pull_requests_verify_pinned_content_before_merge(self):
+        self.assertIn(
+            "- if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'\n"
+            "        name: Verify upstream content matches its pinned commits",
+            self.workflow,
+        )
+
     def test_every_automated_commit_includes_the_generated_marketplace(self):
         commits = self.workflow.count("git commit -m")
         self.assertEqual(commits, 2)
