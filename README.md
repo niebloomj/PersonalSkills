@@ -177,6 +177,10 @@ contain private configuration and must never be committed or shared.
   fourteen replacements are present; native runtime plugins are untouched. If the
   Codex config cannot be edited safely, sync leaves it unchanged, reports it as
   skipped, and audit fails until it is resolved.
+- `codebase-memory` is a local copy of the skill that `codebase-memory-mcp install`
+  writes. Upstream compiles it into the binary, so there is no file to pin. The
+  installer skips an existing skill unless run with `--force`; if an MCP update does
+  rewrite it, auto-sync stops on the dirty checkout, and you commit the new text here.
 - `grill-me` is retired in favor of `grilling`.
 - Trail of Bits retired `ask-questions-if-underspecified`; its obsolete copy is
   removed rather than frozen into this collection.
