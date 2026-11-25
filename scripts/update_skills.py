@@ -181,11 +181,10 @@ def validate_skill(name: str, files: dict[str, bytes]) -> None:
         frontmatter,
         re.MULTILINE,
     )
-    description = re.search(r"^description:\s*(\S.*)$", frontmatter, re.MULTILINE)
     if not skill_name or skill_name.group("name") != name:
         raise ValueError(f"{name}: upstream skill name changed or does not match the catalog")
-    if not description:
-        raise ValueError(f"{name}: SKILL.md description is missing")
+    if not skill_description(content):
+        raise ValueError(f"{name}: SKILL.md description is missing or empty")
     for path, data in files.items():
         if len(data) > MAX_FILE_BYTES:
             raise ValueError(f"{name}/{path}: file exceeds {MAX_FILE_BYTES} bytes")

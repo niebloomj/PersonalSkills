@@ -38,6 +38,13 @@ class CatalogTests(unittest.TestCase):
             "catalog.json is tool-written; run `python3 scripts/update_skills.py --vendor`",
         )
 
+    def test_empty_descriptions_are_rejected(self):
+        for front in ('description: ""\n', "description: >\n", "description:\nlicense: MIT\n"):
+            with self.subTest(front=front):
+                files = {"SKILL.md": f"---\nname: demo\n{front}---\n\nBody.\n".encode()}
+                with self.assertRaisesRegex(ValueError, "description is missing or empty"):
+                    validate_skill("demo", files)
+
     def test_skill_scanner_asks_before_running_shell_commands(self):
         skill = (Path(__file__).resolve().parents[1] / "skills/skill-scanner/SKILL.md").read_bytes()
         settings = update_skills.top_level_settings(update_skills.frontmatter(skill))
