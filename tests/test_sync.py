@@ -207,6 +207,26 @@ class SyncTests(unittest.TestCase):
         self.module().synchronize(self.repo, self.home, apply=True)
         self.assertEqual(self.module().audit(self.repo, self.home), [])
 
+    def test_excluded_agent_roots_are_neither_linked_nor_audited(self):
+        (self.home / ".gemini").mkdir()
+        leftover = self.home / ".gemini/skills/old-copy"
+        self.skill(leftover, "old-copy", "Agent the user no longer runs.")
+        config = self.home / ".local/state/personal-skills/config.json"
+        config.parent.mkdir(parents=True)
+        config.write_text(json.dumps({"excludedRoots": [str(self.home / ".gemini/skills")]}))
+        self.module().synchronize(self.repo, self.home, apply=True)
+        self.assertFalse((self.home / ".gemini/skills/sentry-code-review").exists())
+        self.assertTrue(leftover.is_dir())
+        self.assertTrue((self.home / ".claude/skills/sentry-code-review").is_symlink())
+        self.assertEqual(self.module().audit(self.repo, self.home), [])
+
+    def test_canonical_root_cannot_be_excluded(self):
+        config = self.home / ".local/state/personal-skills/config.json"
+        config.parent.mkdir(parents=True)
+        config.write_text(json.dumps({"excludedRoots": [str(self.home / ".agents/skills")]}))
+        with self.assertRaisesRegex(ValueError, "canonical"):
+            self.module().synchronize(self.repo, self.home, apply=True)
+
     def test_opencode_skills_folder_stays_managed_without_the_environment_variable(self):
         config_dir = self.home / ".hubspot/opencode/config"
         config_dir.mkdir(parents=True)
