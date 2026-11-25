@@ -1,3 +1,4 @@
+import contextlib
 import difflib
 import gzip
 import hashlib
@@ -448,6 +449,7 @@ class CatalogTests(unittest.TestCase):
             patch.dict(update_skills.ARCHIVES, clear=True),
             patch.object(update_skills, "archive_command", return_value=command) as download,
             patch.object(update_skills, "read_source", side_effect=read_source),
+            contextlib.redirect_stderr(io.StringIO()) as warnings,
         ):
             files = update_skills.fetch_skill(
                 "example/skills",
@@ -457,7 +459,7 @@ class CatalogTests(unittest.TestCase):
                 {("example/skills", "a" * 40): tree},
                 archive_paths=("skills/docs/",),
             )
-        return files, download.call_count
+        return files, download.call_count, warnings.getvalue()
 
     def download(self, command, paths=("skills/docs/",)):
         with patch.object(update_skills, "archive_command", return_value=command):
@@ -469,13 +471,14 @@ class CatalogTests(unittest.TestCase):
             "skills/docs/guide.md": b"Guide.\n",
         }
         tree, command = self.archive_fixture(files, {**files, "README.md": b"Readme.\n"})
-        fetched, downloads = self.fetch_from_archive(
+        fetched, downloads, warnings = self.fetch_from_archive(
             tree, command, AssertionError("a file was fetched on its own")
         )
         self.assertEqual(
             fetched, {path.removeprefix("skills/docs/"): data for path, data in files.items()}
         )
         self.assertEqual(downloads, 1)
+        self.assertEqual(warnings, "")
 
     def test_archive_files_that_differ_from_the_recorded_blob_are_fetched_on_their_own(self):
         skill = b"---\nname: docs\ndescription: Write docs.\n---\n"
@@ -488,9 +491,39 @@ class CatalogTests(unittest.TestCase):
             read.append(path)
             return recorded[path]
 
-        fetched, _ = self.fetch_from_archive(tree, command, read_source)
+        fetched, _, warnings = self.fetch_from_archive(tree, command, read_source)
         self.assertEqual(fetched["guide.md"], b"Recorded guide.\n")
         self.assertEqual(read, ["skills/docs/guide.md"])
+        self.assertEqual(
+            warnings,
+            "example/skills: skills/docs/guide.md does not match its blob in the archive; "
+            "fetching it on its own.\n",
+        )
+
+    def test_files_missing_from_the_archive_are_reported_and_fetched_on_their_own(self):
+        skill = b"---\nname: docs\ndescription: Write docs.\n---\n"
+        recorded = {"skills/docs/SKILL.md": skill, "skills/docs/guide.md": b"Guide.\n"}
+        tree, command = self.archive_fixture(recorded, {"skills/docs/SKILL.md": skill})
+        fetched, _, warnings = self.fetch_from_archive(
+            tree, command, lambda repository, ref, path: recorded[path]
+        )
+        self.assertEqual(fetched["guide.md"], b"Guide.\n")
+        self.assertIn("skills/docs/guide.md is missing from the archive", warnings)
+
+    def test_files_fetched_on_their_own_must_match_their_recorded_blob(self):
+        skill = b"---\nname: docs\ndescription: Write docs.\n---\n"
+        recorded = {"skills/docs/SKILL.md": skill, "skills/docs/guide.md": b"Recorded guide.\n"}
+        tree, command = self.archive_fixture(recorded, {"skills/docs/SKILL.md": skill})
+        with self.assertRaisesRegex(
+            ValueError, "guide.md does not match the blob recorded at a{40}"
+        ):
+            self.fetch_from_archive(
+                tree,
+                command,
+                lambda repository, ref, path: (
+                    b"Served guide.\n" if path.endswith("guide.md") else skill
+                ),
+            )
 
     def test_a_failed_archive_download_falls_back_to_fetching_each_file(self):
         files = {
@@ -498,12 +531,17 @@ class CatalogTests(unittest.TestCase):
             "skills/docs/guide.md": b"Guide.\n",
         }
         tree, _ = self.archive_fixture(files, {})
-        fetched, _ = self.fetch_from_archive(
+        fetched, _, warnings = self.fetch_from_archive(
             tree,
             ["sh", "-c", "echo 'gh: Server Error (HTTP 502)' >&2; exit 1"],
             lambda repository, ref, path: files[path],
         )
         self.assertEqual(fetched["guide.md"], b"Guide.\n")
+        self.assertEqual(
+            warnings,
+            "Could not use the example/skills archive at aaaaaaaaaaaa "
+            "(gh: Server Error (HTTP 502)); fetching its files one at a time.\n",
+        )
 
     def test_a_corrupt_archive_falls_back_to_fetching_each_file(self):
         files = {
@@ -521,9 +559,12 @@ class CatalogTests(unittest.TestCase):
             read.append(path)
             return files[path]
 
-        fetched, _ = self.fetch_from_archive(tree, self.served(bytes(stored)), read_source)
+        fetched, _, warnings = self.fetch_from_archive(
+            tree, self.served(bytes(stored)), read_source
+        )
         self.assertEqual(fetched["guide.md"], files["skills/docs/guide.md"])
         self.assertEqual(sorted(read), sorted(files))
+        self.assertIn("(invalid compressed data); fetching its files one at a time.", warnings)
 
     def test_license_notices_come_from_the_same_archive(self):
         notice = b"MIT License.\n"

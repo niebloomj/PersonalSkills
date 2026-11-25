@@ -39,8 +39,9 @@ MAX_ACTIVITY_PAGES = 10
 MAX_ARCHIVE_BYTES = 200_000_000
 ARCHIVE_CHUNK_BYTES = 65_536
 ARCHIVE_TIMEOUT_SECONDS = 300
+ARCHIVE_EXIT_SECONDS = 1
 GIT_TIMEOUT_SECONDS = 60
-ARCHIVES: dict[tuple[str, str, tuple[str, ...]], dict[str, bytes]] = {}
+ARCHIVES: dict[tuple[str, str, tuple[str, ...]], dict[str, bytes] | None] = {}
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 TREE_ENDPOINT = re.compile(r"repos/[^/]+/[^/]+/git/trees/[0-9a-f]{40}\?recursive=1")
 ZERO_SHA = "0" * 40
@@ -699,31 +700,42 @@ def download_archive(repository: str, ref: str, paths: tuple[str, ...]) -> dict[
         process = subprocess.Popen(
             archive_command(repository, ref), stdout=subprocess.PIPE, stderr=errors, bufsize=0
         )
+        failure: Exception | None = None
         try:
             stream = ArchiveStream(process.stdout)
             files = unpack_archive(stream, paths)
             while stream.read(ARCHIVE_CHUNK_BYTES):
                 pass
-            status = process.wait(timeout=max(stream.deadline - time.monotonic(), 0))
+        except (OSError, ValueError, tarfile.TarError) as error:
+            failure = error
         finally:
-            if process.poll() is None:
-                process.kill()
-                process.wait()
             process.stdout.close()
-        if status:
+        try:
+            status = process.wait(timeout=ARCHIVE_EXIT_SECONDS)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            status = process.wait()
+        if status > 0:
             errors.seek(0)
             detail = errors.read(MAX_FILE_BYTES).decode("utf-8", errors="replace").strip()
-            raise ValueError(detail or f"gh exited with status {status}")
+            raise ValueError(detail or f"gh exited with status {status}") from failure
+        if failure is not None:
+            raise failure
     return files
 
 
-def archive_files(repository: str, ref: str, paths: tuple[str, ...]) -> dict[str, bytes]:
+def archive_files(repository: str, ref: str, paths: tuple[str, ...]) -> dict[str, bytes] | None:
     key = (repository, ref, paths)
     if key not in ARCHIVES:
         try:
             ARCHIVES[key] = download_archive(repository, ref, paths)
-        except (OSError, ValueError, tarfile.TarError, subprocess.SubprocessError):
-            ARCHIVES[key] = {}
+        except (OSError, ValueError, tarfile.TarError) as error:
+            print(
+                f"Could not use the {repository} archive at {ref[:12]} ({error}); "
+                "fetching its files one at a time.",
+                file=sys.stderr,
+            )
+            ARCHIVES[key] = None
     return ARCHIVES[key]
 
 
@@ -739,11 +751,21 @@ def catalog_paths(catalog: dict[str, Any], repository: str) -> tuple[str, ...]:
 def read_blob(
     repository: str, ref: str, path: str, blob: str | None, archive_paths: tuple[str, ...]
 ) -> bytes:
-    if blob and archive_paths:
-        data = archive_files(repository, ref, archive_paths).get(path)
+    archive = archive_files(repository, ref, archive_paths) if blob and archive_paths else None
+    if archive is not None:
+        data = archive.get(path)
         if data and git_blob_id(data) == blob:
             return data
-    return read_source(repository, ref, path)
+        if data is None or git_blob_id(data) != blob:
+            problem = "is missing from" if data is None else "does not match its blob in"
+            print(
+                f"{repository}: {path} {problem} the archive; fetching it on its own.",
+                file=sys.stderr,
+            )
+    data = read_source(repository, ref, path)
+    if blob and git_blob_id(data) != blob:
+        raise ValueError(f"{repository}: {path} does not match the blob recorded at {ref}")
+    return data
 
 
 def read_license(
