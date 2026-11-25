@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -415,6 +416,20 @@ class CatalogTests(unittest.TestCase):
             self.assertEqual(catalog_path.read_text(encoding="utf-8"), edited)
             self.assertFalse((root / "skills/helper").exists())
 
+    def archive_bytes(self, files):
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+            for path, data in files.items():
+                info = tarfile.TarInfo(f"example-skills-abc1234/{path}")
+                info.size = len(data)
+                archive.addfile(info, io.BytesIO(data))
+        return buffer.getvalue()
+
+    def served(self, data):
+        path = Path(self.enterContext(tempfile.TemporaryDirectory())) / "archive.tar.gz"
+        path.write_bytes(data)
+        return ["cat", str(path)]
+
     def archive_fixture(self, recorded, archived):
         def blob(data):
             return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
@@ -425,26 +440,12 @@ class CatalogTests(unittest.TestCase):
                 for path, data in recorded.items()
             ]
         }
-        buffer = io.BytesIO()
-        with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
-            for path, data in archived.items():
-                info = tarfile.TarInfo(f"example-skills-abc1234/{path}")
-                info.size = len(data)
-                archive.addfile(info, io.BytesIO(data))
-        return tree, buffer.getvalue()
+        return tree, self.served(self.archive_bytes(archived))
 
-    def fetch_from_archive(self, tree, response, read_source):
-        requests = []
-
-        def request(url, **options):
-            requests.append(url)
-            if isinstance(response, Exception):
-                raise response
-            return response
-
+    def fetch_from_archive(self, tree, command, read_source):
         with (
             patch.dict(update_skills.ARCHIVES, clear=True),
-            patch.object(update_skills, "request", side_effect=request),
+            patch.object(update_skills, "archive_command", return_value=command) as download,
             patch.object(update_skills, "read_source", side_effect=read_source),
         ):
             files = update_skills.fetch_skill(
@@ -453,35 +454,40 @@ class CatalogTests(unittest.TestCase):
                 "skills/docs",
                 "docs",
                 {("example/skills", "a" * 40): tree},
+                archive_paths=("skills/docs/",),
             )
-        return files, requests
+        return files, download.call_count
+
+    def download(self, command, paths=("skills/docs/",)):
+        with patch.object(update_skills, "archive_command", return_value=command):
+            return update_skills.download_archive("example/skills", "a" * 40, paths)
 
     def test_skill_files_come_from_one_archive_download(self):
         files = {
             "skills/docs/SKILL.md": b"---\nname: docs\ndescription: Write docs.\n---\n",
             "skills/docs/guide.md": b"Guide.\n",
         }
-        tree, archive = self.archive_fixture(files, {**files, "README.md": b"Readme.\n"})
-        fetched, requests = self.fetch_from_archive(
-            tree, archive, AssertionError("a file was fetched on its own")
+        tree, command = self.archive_fixture(files, {**files, "README.md": b"Readme.\n"})
+        fetched, downloads = self.fetch_from_archive(
+            tree, command, AssertionError("a file was fetched on its own")
         )
         self.assertEqual(
             fetched, {path.removeprefix("skills/docs/"): data for path, data in files.items()}
         )
-        self.assertEqual(requests, [f"{update_skills.API}/repos/example/skills/tarball/{'a' * 40}"])
+        self.assertEqual(downloads, 1)
 
     def test_archive_files_that_differ_from_the_recorded_blob_are_fetched_on_their_own(self):
         skill = b"---\nname: docs\ndescription: Write docs.\n---\n"
         recorded = {"skills/docs/SKILL.md": skill, "skills/docs/guide.md": b"Recorded guide.\n"}
         archived = {"skills/docs/SKILL.md": skill, "skills/docs/guide.md": b"Rewritten guide.\n"}
-        tree, archive = self.archive_fixture(recorded, archived)
+        tree, command = self.archive_fixture(recorded, archived)
         read = []
 
         def read_source(repository, ref, path):
             read.append(path)
             return recorded[path]
 
-        fetched, _ = self.fetch_from_archive(tree, archive, read_source)
+        fetched, _ = self.fetch_from_archive(tree, command, read_source)
         self.assertEqual(fetched["guide.md"], b"Recorded guide.\n")
         self.assertEqual(read, ["skills/docs/guide.md"])
 
@@ -492,23 +498,83 @@ class CatalogTests(unittest.TestCase):
         }
         tree, _ = self.archive_fixture(files, {})
         fetched, _ = self.fetch_from_archive(
-            tree, ValueError("HTTP 502"), lambda repository, ref, path: files[path]
+            tree,
+            ["sh", "-c", "echo 'gh: Server Error (HTTP 502)' >&2; exit 1"],
+            lambda repository, ref, path: files[path],
         )
         self.assertEqual(fetched["guide.md"], b"Guide.\n")
 
     def test_license_notices_come_from_the_same_archive(self):
         notice = b"MIT License.\n"
         tree, _ = self.archive_fixture({"LICENSE": notice}, {})
+        key = ("example/skills", "a" * 40, ("LICENSE",))
         with (
-            patch.dict(update_skills.ARCHIVES, {("example/skills", "a" * 40): {"LICENSE": notice}}),
+            patch.dict(update_skills.ARCHIVES, {key: {"LICENSE": notice}}),
             patch.object(update_skills, "read_source", side_effect=AssertionError("fetched alone")),
         ):
             self.assertEqual(
                 update_skills.read_license(
-                    "example/skills", "a" * 40, "LICENSE", {("example/skills", "a" * 40): tree}
+                    "example/skills",
+                    "a" * 40,
+                    "LICENSE",
+                    {("example/skills", "a" * 40): tree},
+                    archive_paths=("LICENSE",),
                 ),
                 notice,
             )
+
+    def test_archives_keep_only_the_skill_folders_and_license_the_catalog_uses(self):
+        catalog = {
+            "skills": {
+                "docs": {"source": "example/skills", "upstreamPath": "skills/docs"},
+                "humanizer": {"source": "example/root", "upstreamPath": "."},
+                "tools": {"source": "example/skills", "upstreamPath": "skills/tools/"},
+            },
+            "sources": {
+                "example/root": {"licensePath": "COPYING"},
+                "example/skills": {"licensePath": "LICENSE"},
+            },
+        }
+        paths = update_skills.catalog_paths(catalog, "example/skills")
+        self.assertEqual(paths, ("skills/docs/", "skills/tools/", "LICENSE"))
+        self.assertEqual(update_skills.catalog_paths(catalog, "example/root"), ("", "COPYING"))
+        archive = {
+            "skills/docs/SKILL.md": b"Docs.\n",
+            "skills/other/SKILL.md": b"Other.\n",
+            "LICENSE": b"MIT License.\n",
+            "assets/video.mp4": b"Video.\n",
+        }
+        self.assertEqual(
+            self.download(self.served(self.archive_bytes(archive)), paths),
+            {"skills/docs/SKILL.md": b"Docs.\n", "LICENSE": b"MIT License.\n"},
+        )
+
+    def test_an_archive_download_stops_at_its_size_cap(self):
+        archive = self.archive_bytes({"assets/noise.bin": os.urandom(50_000)})
+        with (
+            patch.object(update_skills, "MAX_ARCHIVE_BYTES", 20_000),
+            self.assertRaisesRegex(ValueError, "download exceeds 20000 bytes"),
+        ):
+            self.download(self.served(archive))
+
+    def test_files_kept_from_an_archive_are_capped(self):
+        archive = self.archive_bytes(
+            {f"skills/docs/part{index}.md": b"\0" * 40_000 for index in range(3)}
+        )
+        with (
+            patch.object(update_skills, "MAX_ARCHIVE_BYTES", 100_000),
+            self.assertRaisesRegex(ValueError, "files kept from the archive exceed"),
+        ):
+            self.download(self.served(archive))
+
+    def test_a_stalled_archive_download_times_out(self):
+        started = time.monotonic()
+        with (
+            patch.object(update_skills, "ARCHIVE_TIMEOUT_SECONDS", 0.2),
+            self.assertRaisesRegex(ValueError, "took longer than 0.2 seconds"),
+        ):
+            self.download(["sleep", "30"])
+        self.assertLess(time.monotonic() - started, 5)
 
     def test_import_excludes_nonessential_gallery_before_downloading(self):
         tree = {
@@ -532,6 +598,7 @@ class CatalogTests(unittest.TestCase):
                     "image",
                     {("example/skills", "a" * 40): tree},
                     exclude=["gallery/*"],
+                    archive_paths=(),
                 )
             except TypeError as error:
                 self.fail(f"selective upstream imports are not supported: {error}")
