@@ -335,39 +335,37 @@ class SyncTests(Isolated):
     def backups(self):
         root = self.home / sync_skills.STATE / "backups"
         now = datetime.now(UTC).timestamp()
-        names = [f"20261001T00000{index}Z-0000000{index}" for index in range(5)]
-        names += [f"cc-switch-{index:032x}" for index in range(2)]
-        for days, name in enumerate(names, start=40):
+        aged = [(f"20261001T00000{index}Z-0000000{index}", 40 + index) for index in range(7)]
+        aged += [(f"cc-switch-{index:032x}", 50 + index) for index in range(7)]
+        for name, days in aged:
             (root / name).mkdir(parents=True)
             os.utime(root / name, (now - days * 86400,) * 2)
         (root / "20261124T000000Z-0000000f").mkdir()
-        (root / "curation-20261001T000000Z-deadbeef").mkdir()
-        os.utime(root / "curation-20261001T000000Z-deadbeef", (now - 60 * 86400,) * 2)
+        receipt = root / "curation-20261001T000000Z-deadbeef"
+        receipt.mkdir()
+        (receipt / "applied.json").write_text(
+            json.dumps(
+                {"backups": [str(root / "20261001T000005Z-00000005"), f"cc-switch-{6:032x}"]}
+            )
+        )
+        os.utime(receipt, (now - 60 * 86400,) * 2)
+        (root / "live-cutover-20261001T000006Z").mkdir()
         return root
 
     def test_a_clean_run_prunes_old_automatic_backups_but_keeps_the_newest(self):
         root = self.backups()
+        before = {path.name for path in root.iterdir()}
         code, output = self.sync()
-        kept = sorted(path.name for path in root.iterdir())
+        removed = before - {path.name for path in root.iterdir()}
         self.assertEqual(code, 0)
-        self.assertEqual(
-            kept,
-            [
-                "20261001T000000Z-00000000",
-                "20261001T000001Z-00000001",
-                "20261001T000002Z-00000002",
-                "20261001T000003Z-00000003",
-                "20261124T000000Z-0000000f",
-                "curation-20261001T000000Z-deadbeef",
-            ],
-        )
-        self.assertIn("Pruned 3 automatic backup(s) older than 30 days.", output)
+        self.assertEqual(removed, {"20261001T000004Z-00000004", f"cc-switch-{5:032x}"})
+        self.assertIn("Pruned 2 automatic backup(s) older than 30 days.", output)
 
     def test_audit_problems_keep_every_backup(self):
         root = self.backups()
         self.report = {"problems": ["Unmanaged skill: /h/.claude/skills/stray"], "warnings": []}
         self.sync()
-        self.assertEqual(len(list(root.iterdir())), 9)
+        self.assertEqual(len(list(root.iterdir())), 17)
 
 
 class FreshHomeTests(Isolated):

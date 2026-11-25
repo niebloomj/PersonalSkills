@@ -36,6 +36,7 @@ CONTENT_PATHS = ("skills/", "licenses/", "catalog.json", ".claude-plugin/marketp
 BACKUP_NAME = re.compile(r"\d{8}T\d{6}Z(?:-[0-9a-f]{8})?|cc-switch-[0-9a-f]{32}")
 BACKUP_DAYS = 30
 BACKUPS_KEPT = 5
+MAX_RECEIPT_BYTES = 1_000_000
 BOOTSTRAP_ATTEMPTS = 5
 FIRST_RUN_SECONDS = 180
 WRAPPER = """"$1" "$2" run --home "$3"
@@ -188,24 +189,47 @@ def describe(action: dict[str, Any]) -> str:
     )
 
 
+def referenced_backups(root: Path) -> set[str]:
+    names: set[str] = set()
+    for entry in root.iterdir():
+        if entry.is_symlink() or BACKUP_NAME.fullmatch(entry.name):
+            continue
+        names.update(BACKUP_NAME.findall(entry.name))
+        paths = [entry] if entry.is_file() else entry.rglob("*") if entry.is_dir() else []
+        for path in paths:
+            if (
+                path.is_file()
+                and not path.is_symlink()
+                and path.stat().st_size <= MAX_RECEIPT_BYTES
+            ):
+                names.update(BACKUP_NAME.findall(path.read_text(encoding="utf-8", errors="ignore")))
+    return names
+
+
 def prune_backups(home: Path, now: datetime) -> int:
     root = home / sync_skills.STATE / "backups"
     if not root.is_dir():
         return 0
-    automatic = sorted(
-        (
-            path
-            for path in root.iterdir()
-            if path.is_dir() and not path.is_symlink() and BACKUP_NAME.fullmatch(path.name)
-        ),
-        key=lambda path: path.stat().st_mtime,
-        reverse=True,
-    )
+    protected = referenced_backups(root)
     cutoff = (now - timedelta(days=BACKUP_DAYS)).timestamp()
-    expired = [path for path in automatic[BACKUPS_KEPT:] if path.stat().st_mtime < cutoff]
-    for path in expired:
-        shutil.rmtree(path)
-    return len(expired)
+    automatic = [
+        path
+        for path in root.iterdir()
+        if path.is_dir() and not path.is_symlink() and BACKUP_NAME.fullmatch(path.name)
+    ]
+    removed = 0
+    for snapshots in (True, False):
+        group = sorted(
+            (path for path in automatic if path.name.startswith("cc-switch-") is snapshots),
+            key=lambda path: path.stat().st_mtime,
+            reverse=True,
+        )
+        for path in group[BACKUPS_KEPT:]:
+            if path.stat().st_mtime >= cutoff or {path.name, path.name.split("-")[0]} & protected:
+                continue
+            shutil.rmtree(path)
+            removed += 1
+    return removed
 
 
 def sync(repository: Path, home: Path) -> int:
