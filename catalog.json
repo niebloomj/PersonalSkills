@@ -98,6 +98,9 @@
       "source": "mattpocock/skills",
       "upstreamPath": "skills/engineering/codebase-design"
     },
+    "codebase-memory": {
+      "local": true
+    },
     "cold-email": {
       "source": "coreyhaines31/marketingskills",
       "upstreamPath": "skills/cold-email"
