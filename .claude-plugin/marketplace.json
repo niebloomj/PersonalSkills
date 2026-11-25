@@ -13,6 +13,7 @@
       "license": "CC-BY-SA-4.0",
       "repository": "https://github.com/trailofbits/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/agentic-actions-auditor"
       ]
@@ -23,6 +24,7 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/getsentry/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/agents-md"
       ]
@@ -33,6 +35,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/brainstorming"
       ]
@@ -43,6 +46,7 @@
       "license": "MIT",
       "repository": "https://github.com/emilkowalski/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/break-ui"
       ]
@@ -53,6 +57,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/chief-of-staff"
       ]
@@ -63,6 +68,7 @@
       "license": "MIT",
       "repository": "https://github.com/emilkowalski/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/choreograph"
       ]
@@ -73,6 +79,7 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/getsentry/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/code-simplifier"
       ]
@@ -83,6 +90,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/codebase-design"
       ]
@@ -93,6 +101,7 @@
       "license": "MIT",
       "repository": "https://github.com/coreyhaines31/marketingskills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/cold-email"
       ]
@@ -103,6 +112,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/dispatching-parallel-agents"
       ]
@@ -113,6 +123,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/domain-modeling"
       ]
@@ -123,6 +134,7 @@
       "license": "MIT",
       "repository": "https://github.com/emilkowalski/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/emil-design-eng"
       ]
@@ -133,6 +145,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/executing-plans"
       ]
@@ -143,6 +156,7 @@
       "license": "MIT",
       "repository": "https://github.com/vercel-labs/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/find-skills"
       ]
@@ -153,6 +167,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers-lab",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/finding-duplicate-functions"
       ]
@@ -163,6 +178,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/finishing-a-development-branch"
       ]
@@ -173,6 +189,7 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/getsentry/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/gha-security-review"
       ]
@@ -183,6 +200,7 @@
       "license": "MIT",
       "repository": "https://github.com/agentspace-so/agent-skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/gpt-image-2"
       ]
@@ -193,6 +211,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/grill-with-docs"
       ]
@@ -203,6 +222,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/grilling"
       ]
@@ -213,6 +233,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/handoff"
       ]
@@ -223,6 +244,7 @@
       "license": "MIT",
       "repository": "https://github.com/blader/humanizer",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/humanizer"
       ]
@@ -233,6 +255,7 @@
       "license": "MIT",
       "repository": "https://github.com/ayghri/i-have-adhd",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/i-have-adhd"
       ]
@@ -243,6 +266,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/implement-spec"
       ]
@@ -253,6 +277,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/improve-codebase-architecture"
       ]
@@ -263,6 +288,7 @@
       "license": "CC-BY-SA-4.0",
       "repository": "https://github.com/trailofbits/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/modern-python"
       ]
@@ -273,6 +299,7 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/microsoft/playwright-cli",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/playwright-cli"
       ]
@@ -283,6 +310,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/receiving-code-review"
       ]
@@ -293,6 +321,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/requesting-code-review"
       ]
@@ -303,6 +332,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/retro"
       ]
@@ -313,6 +343,7 @@
       "license": "MIT",
       "repository": "https://github.com/emilkowalski/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/review-animations"
       ]
@@ -323,6 +354,7 @@
       "license": "CC-BY-SA-4.0",
       "repository": "https://github.com/trailofbits/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/second-opinion"
       ]
@@ -333,6 +365,7 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/openai/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/security-best-practices"
       ]
@@ -343,6 +376,7 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/openai/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/security-threat-model"
       ]
@@ -353,6 +387,7 @@
       "license": "FSL-1.1-Apache-2.0",
       "repository": "https://github.com/getsentry/toolkit",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/sentry-cli"
       ]
@@ -363,6 +398,7 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/getsentry/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/sentry-code-review"
       ]
@@ -373,6 +409,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/setup-matt-pocock-skills"
       ]
@@ -383,6 +420,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/setup-pre-commit"
       ]
@@ -393,6 +431,7 @@
       "license": "CC-BY-SA-4.0",
       "repository": "https://github.com/trailofbits/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/sharp-edges"
       ]
@@ -403,6 +442,7 @@
       "license": "Apache-2.0",
       "repository": "https://github.com/getsentry/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/skill-scanner"
       ]
@@ -413,6 +453,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/standards-spec-review"
       ]
@@ -423,6 +464,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/subagent-driven-development"
       ]
@@ -433,6 +475,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/systematic-debugging"
       ]
@@ -443,6 +486,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/test-driven-development"
       ]
@@ -453,6 +497,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/to-spec"
       ]
@@ -463,6 +508,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/to-tickets"
       ]
@@ -473,6 +519,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/triage"
       ]
@@ -483,6 +530,7 @@
       "license": "MIT",
       "repository": "https://github.com/typesafe-ai/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/typesafe-ai"
       ]
@@ -493,6 +541,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/using-git-worktrees"
       ]
@@ -503,6 +552,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/using-superpowers"
       ]
@@ -513,6 +563,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/verification-before-completion"
       ]
@@ -523,6 +574,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/wait-what"
       ]
@@ -533,6 +585,7 @@
       "license": "MIT",
       "repository": "https://github.com/mattpocock/skills",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/writing-for-agents"
       ]
@@ -543,6 +596,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/writing-plans"
       ]
@@ -553,6 +607,7 @@
       "license": "MIT",
       "repository": "https://github.com/obra/superpowers",
       "source": "./",
+      "strict": false,
       "skills": [
         "./skills/writing-skills"
       ]

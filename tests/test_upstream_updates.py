@@ -232,6 +232,23 @@ class UpstreamUpdateTests(unittest.TestCase):
         plugins = json.loads(self.marketplace().read_text())["plugins"]
         self.assertEqual(plugins[0]["description"], "Write better things.")
 
+    def test_marketplace_entries_are_complete_plugin_definitions(self):
+        catalog = {"skills": {"docs": {"source": "example/docs"}}, "sources": {"example/docs": {}}}
+        marketplace = update_skills.marketplace_text(catalog, {"docs": skill_text("docs")})
+        self.assertEqual(
+            json.loads(marketplace)["plugins"],
+            [
+                {
+                    "name": "docs",
+                    "description": "Write things.",
+                    "repository": "https://github.com/example/docs",
+                    "source": "./",
+                    "strict": False,
+                    "skills": ["./skills/docs"],
+                }
+            ],
+        )
+
     def test_marketplace_descriptions_join_block_descriptions(self):
         skill = skill_text("docs", ">\n  Write better\n  things.")
         self.assertEqual(update_skills.skill_description(skill), "Write better things.")

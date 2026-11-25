@@ -631,7 +631,7 @@ def marketplace_text(catalog: dict[str, Any], skills: dict[str, bytes] | None = 
             if license_name := catalog["sources"].get(source, {}).get("license"):
                 plugin["license"] = license_name
             plugin["repository"] = f"https://github.com/{source}"
-        plugins.append({**plugin, "source": "./", "skills": [f"./skills/{name}"]})
+        plugins.append({**plugin, "source": "./", "strict": False, "skills": [f"./skills/{name}"]})
     return json.dumps({**MARKETPLACE, "plugins": plugins}, indent=2) + "\n"
 
 
