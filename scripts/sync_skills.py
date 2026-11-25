@@ -88,6 +88,15 @@ def skill_roots(home: Path, config: dict[str, Any]) -> list[Path]:
             and candidate.parent.is_dir()
         ):
             roots.add(candidate)
+    excluded = set()
+    for value in config.get("excludedRoots", []):
+        root = Path(value).expanduser()
+        if not root.is_absolute():
+            raise ValueError(f"Excluded skill roots must be absolute: {root}")
+        if root.absolute() == canonical.absolute():
+            raise ValueError("The canonical skill root cannot be excluded")
+        excluded.add(root.absolute())
+    roots = {root for root in roots if root.absolute() not in excluded}
     unique: dict[Path, Path] = {}
     for root in [canonical, *sorted(roots - {canonical})]:
         within_home(root, home)

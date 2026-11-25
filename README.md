@@ -120,8 +120,9 @@ or symlinked client variants. Missing registered lockfiles are errors, not silen
 
 Machine-specific configuration is private, outside this repository:
 `~/.local/state/personal-skills/config.json`. It remembers external lockfiles and
-can specify absolute `extraRoots`, explicit runtime-owned `exemptRoots`, and
-additional `retired` IDs. `externalOwners` preserves selected company repository
+can specify absolute `extraRoots`, explicit runtime-owned `exemptRoots`,
+`excludedRoots` for detected agents you don't use (never linked or audited;
+`~/.agents/skills` cannot be excluded), and additional `retired` IDs. `externalOwners` preserves selected company repository
 discovery entries when migrating CC-Switch.
 
 An exact-path `retainedDanglingLinks` list can acknowledge deliberately retained
