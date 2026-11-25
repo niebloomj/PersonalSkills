@@ -531,12 +531,13 @@ class CatalogTests(unittest.TestCase):
             "skills/docs/guide.md": b"Guide.\n",
         }
         tree, _ = self.archive_fixture(files, {})
-        fetched, _, warnings = self.fetch_from_archive(
+        fetched, downloads, warnings = self.fetch_from_archive(
             tree,
             ["sh", "-c", "echo 'gh: Server Error (HTTP 502)' >&2; exit 1"],
             lambda repository, ref, path: files[path],
         )
         self.assertEqual(fetched["guide.md"], b"Guide.\n")
+        self.assertEqual(downloads, 1)
         self.assertEqual(
             warnings,
             "Could not use the example/skills archive at aaaaaaaaaaaa "
@@ -565,6 +566,40 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(fetched["guide.md"], files["skills/docs/guide.md"])
         self.assertEqual(sorted(read), sorted(files))
         self.assertIn("(invalid compressed data); fetching its files one at a time.", warnings)
+
+    def test_archive_entries_that_are_not_regular_files_are_ignored(self):
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+            info = tarfile.TarInfo("example-skills-abc1234/skills/docs/SKILL.md")
+            info.size = len(b"Skill.\n")
+            archive.addfile(info, io.BytesIO(b"Skill.\n"))
+            for name, kind in (
+                ("link.md", tarfile.SYMTYPE),
+                ("hardlink.md", tarfile.LNKTYPE),
+                ("folder", tarfile.DIRTYPE),
+                ("pipe", tarfile.FIFOTYPE),
+            ):
+                info = tarfile.TarInfo(f"example-skills-abc1234/skills/docs/{name}")
+                info.type = kind
+                info.linkname = "example-skills-abc1234/skills/docs/SKILL.md"
+                archive.addfile(info)
+        self.assertEqual(
+            self.download(self.served(buffer.getvalue())), {"skills/docs/SKILL.md": b"Skill.\n"}
+        )
+
+    def test_an_empty_upstream_file_is_still_rejected(self):
+        files = {
+            "skills/docs/SKILL.md": b"---\nname: docs\ndescription: Write docs.\n---\n",
+            "skills/docs/empty.md": b"",
+        }
+        tree, command = self.archive_fixture(files, files)
+        with (
+            patch.object(update_skills, "request", return_value=b""),
+            self.assertRaisesRegex(
+                ValueError, "empty, or oversized upstream file: example/skills/skills/docs/empty.md"
+            ),
+        ):
+            self.fetch_from_archive(tree, command, update_skills.read_source)
 
     def test_license_notices_come_from_the_same_archive(self):
         notice = b"MIT License.\n"
