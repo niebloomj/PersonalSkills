@@ -30,6 +30,94 @@
       ]
     },
     {
+      "name": "aws-billing-and-cost-management",
+      "description": "Analyze AWS costs, find savings, manage budgets, evaluate Savings Plans and Reserved Instances, right-size EC2/Lambda/RDS/EBS with Compute Optimizer, look up service pricing, query CUR with Athena, detect cost anomalies, scope costs to billing views, and monitor Free Tier usage. Triggers on: AWS bill, cost analysis, reduce spend, savings plan, reserved instance, right-size, budget alert, cost optimization, pricing, free tier, cost anomaly, CUR, cost audit, billing view, billing view ARN.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/aws/agent-toolkit-for-aws",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/aws-billing-and-cost-management"
+      ]
+    },
+    {
+      "name": "aws-cdk",
+      "description": "Authors, deploys, and troubleshoots AWS infrastructure using CDK with TypeScript or Python. Covers best practices, stack architecture, and construct patterns. Applies when writing CDK constructs, bootstrapping environments, running cdk deploy/synth/diff, fixing CDK or CloudFormation errors, planning stack structure, importing existing resources, resolving drift, or refactoring stacks without resource replacement.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/aws/agent-toolkit-for-aws",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/aws-cdk"
+      ]
+    },
+    {
+      "name": "aws-containers",
+      "description": "Builds and deploys containerized workloads on Elastic Kubernetes Service (EKS), Elastic Container Service (ECS), Fargate, and ECR (Elastic Container Registry). Covers general EKS knowledge, Karpenter, AWS Load Balancer Controller and leveraging various open source Kubernetes projects with EKS. Covers general ECS knowledge, task definitions, Fargate services, ECS Exec, ECS Express Mode and ECS Managed Instances. Covers general Elastic Beanstalk knowledge, Elastic Beanstalk configuration and platforms supported by Elastic Beanstalk. Covers general ECR knowledge, ECR repository setup and lifecycle policies. Includes recommending, enabling, and reading Amazon ECS Action Logs to troubleshoot control-plane failures (deployment rollback/circuit-breaker, task placement, scaling, task replacement). Applies when deploying, debugging, or optimizing containers on AWS. Should be used instead of relying on internal knowledge for these services.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/aws/agent-toolkit-for-aws",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/aws-containers"
+      ]
+    },
+    {
+      "name": "aws-deployment",
+      "description": "Configures CI/CD pipelines using AWS CodePipeline, CodeBuild, CodeDeploy, CodeConnections, and CodeArtifact. Covers CodePipeline V2 (triggers, variables, execution modes, cross-account), buildspec.yml (caching, VPC, Docker), CodeDeploy strategies (blue/green, canary, linear), CodeArtifact (private package registries, auth tokens, cross-account), and source connections (GitHub, GitLab, Bitbucket). Applies when CodePipeline, CodeBuild, CodeDeploy, CodeConnections, CodeArtifact, buildspec.yml, appspec.yml, or CI/CD pipeline orchestration is referenced. Does NOT cover: ECS Fargate services or task definitions (use aws-containers), CDK Pipelines or cdk deploy (use aws-cdk), sam deploy (use aws-serverless), Amplify deployments (use aws-amplify), or GitHub Actions/GitLab CI.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/aws/agent-toolkit-for-aws",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/aws-deployment"
+      ]
+    },
+    {
+      "name": "aws-messaging-and-streaming",
+      "description": "Guides general use of AWS messaging and streaming services. Covers Amazon SQS, Amazon SNS, Amazon EventBridge, Amazon MQ, Amazon Kinesis Data Streams, Amazon Data Firehose, Amazon Managed Service for Apache Flink, and Amazon Managed Streaming for Apache Kafka (MSK). Use when reasoning about messaging and streaming patterns. Also identifies which AWS service owns each customer communication channel: email (Amazon SES), and WhatsApp, SMS, MMS, RCS, voice and mobile push (the AWS End User Messaging family of services). Routes the request to the specialized skill for that channel. Defers to the channel's specialized skill when the user already named a specific channel. In general, use specific skills or documentation searches for detailed service-specific questions. Do NOT use for MSK or Managed Service for Apache Flink questions, prefer specific skills. Does not configure customer communication channels; defers to specific skills.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/aws/agent-toolkit-for-aws",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/aws-messaging-and-streaming"
+      ]
+    },
+    {
+      "name": "aws-observability",
+      "description": "Investigates root causes on the Omni context graph (service dependencies); builds, configures, debugs, tunes AWS observability - operator-symptom questions, detecting Omni vs classic CloudWatch. CloudWatch on a reporting service: fleet health views, Log Insights, metric/composite/anomaly alarms, custom metrics/EMF, dashboards, X-Ray/ADOT tracing, canaries, CloudTrail (incl. OTLP/PromQL), Dynamic Instrumentation (live breakpoints), and Application Signals service map. CloudWatch Omni on an existing Space: SQL over logs/traces, PromQL, Omni dashboards, alerts and Slack notifications, programmatic/IaC access, driving Omni from a coding agent or skills, AI agent quality from traces - on-demand and online evaluation of live traffic, incl. setting it up, readback, evaluators. For first-time setup - creating an Omni Space, granting access, ingestion, or ADOT instrumentation for Application Signals or Omni - use setting-up-cloudwatch-observability. Not for app logging or threat detection.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/aws/agent-toolkit-for-aws",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/aws-observability"
+      ]
+    },
+    {
+      "name": "aws-sdk-python-usage",
+      "description": "AWS SDK for Python (boto3/botocore) development patterns. You MUST use this skill when writing Python code that uses AWS services via boto3 or botocore. This includes creating service clients or resources, configuring sessions and credentials, handling errors with ClientError, using paginators and waiters, S3 file transfers and presigned URLs, DynamoDB table operations, and any boto3/botocore client configuration. Use this skill whenever Python code imports boto3 or botocore, or when the user asks about AWS operations in Python.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/aws/agent-toolkit-for-aws",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/aws-sdk-python-usage"
+      ]
+    },
+    {
+      "name": "aws-serverless",
+      "description": "Routes serverless requests to a compute form factor and the skill that owns it. Applies to Lambda, API Gateway, EventBridge, Step Functions and event-driven work while the compute, orchestration or integration choice is open \u2014 API backends, webhooks, jobs, cron, queue/stream consumers, durable workflows, event routing, Step Functions vs Durable Functions, and Pipes vs native event source mappings for queues and streams. Decides Event Functions on-demand vs Managed Instances, Web Functions, MicroVMs, EventBridge rules/Scheduler/Pipes/bus, HTTP vs REST API. Owns shared Lambda references (cold starts, SnapStart, concurrency, event sources, function URLs, throttling, troubleshooting). Defers to the specialized skill once a request commits to one form factor or service, or describes its defining feature without naming it (durable checkpointing and automatic step retries, Firecracker sandbox, managed instances, Node.js server). Not for EC2, ECS/EKS/Fargate or Amplify hosting.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/aws/agent-toolkit-for-aws",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/aws-serverless"
+      ]
+    },
+    {
       "name": "brainstorming",
       "description": "You MUST use this before any creative work - creating features, building components, adding functionality, modifying behavior, or planning anything new, in software or out of it (a talk, a business, a renovation).",
       "license": "MIT",
@@ -49,6 +137,17 @@
       "strict": false,
       "skills": [
         "./skills/break-ui"
+      ]
+    },
+    {
+      "name": "changelog-automation",
+      "description": "Automate changelog generation from commits, PRs, and releases following Keep a Changelog format. Use when setting up release workflows, generating release notes, or standardizing commit conventions.",
+      "license": "MIT",
+      "repository": "https://github.com/wshobson/agents",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/changelog-automation"
       ]
     },
     {
@@ -129,6 +228,17 @@
       ]
     },
     {
+      "name": "e2e-testing-patterns",
+      "description": "Master end-to-end testing with Playwright and Cypress to build reliable test suites that catch bugs, improve confidence, and enable fast deployment. Use when implementing E2E tests, debugging flaky tests, or establishing testing standards.",
+      "license": "MIT",
+      "repository": "https://github.com/wshobson/agents",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/e2e-testing-patterns"
+      ]
+    },
+    {
       "name": "emil-design-eng",
       "description": "Emil Kowalski's design-engineering philosophy for UI polish, component design, animation decisions, and the invisible details that make software feel great. Use when building or reviewing a UI component's interactions and polish (press and hover states, popover origin, tooltip timing, transitions vs keyframes, clip-path techniques, drag details) and no narrower skill fits.",
       "license": "MIT",
@@ -148,6 +258,17 @@
       "strict": false,
       "skills": [
         "./skills/executing-plans"
+      ]
+    },
+    {
+      "name": "fastapi",
+      "description": "FastAPI best practices and conventions. Use when working with FastAPI APIs, Pydantic models, dependencies, streaming responses including Server-Sent Events (SSE), and serving frontend apps. Keeps FastAPI code clean and up to date with the latest features and patterns.",
+      "license": "MIT",
+      "repository": "https://github.com/fastapi/fastapi",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/fastapi"
       ]
     },
     {
@@ -184,6 +305,17 @@
       ]
     },
     {
+      "name": "gh-address-comments",
+      "description": "Help address review/issue comments on the open GitHub PR for the current branch using gh CLI; verify gh auth first and prompt the user to authenticate if not logged in.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/openai/skills",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/gh-address-comments"
+      ]
+    },
+    {
       "name": "gha-security-review",
       "description": "GitHub Actions security review for workflow exploitation vulnerabilities. Use when asked to \"review GitHub Actions\", \"audit workflows\", \"check CI security\", \"GHA security\", \"workflow security review\", or review .github/workflows/ for pwn requests, expression injection, credential theft, and supply chain attacks. Exploitation-focused with concrete PoC scenarios.",
       "license": "Apache-2.0",
@@ -192,6 +324,17 @@
       "strict": false,
       "skills": [
         "./skills/gha-security-review"
+      ]
+    },
+    {
+      "name": "github-actions-templates",
+      "description": "Create production-ready GitHub Actions workflows for automated testing, building, and deploying applications. Use when setting up CI/CD with GitHub Actions, automating development workflows, or creating reusable workflow templates.",
+      "license": "MIT",
+      "repository": "https://github.com/wshobson/agents",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/github-actions-templates"
       ]
     },
     {
@@ -305,6 +448,17 @@
       ]
     },
     {
+      "name": "python-testing-patterns",
+      "description": "Implement comprehensive testing strategies with pytest, fixtures, mocking, and test-driven development. Use when writing Python tests, setting up test suites, or implementing testing best practices.",
+      "license": "MIT",
+      "repository": "https://github.com/wshobson/agents",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/python-testing-patterns"
+      ]
+    },
+    {
       "name": "receiving-code-review",
       "description": "Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation",
       "license": "MIT",
@@ -404,6 +558,17 @@
       ]
     },
     {
+      "name": "seo-audit",
+      "description": "When the user wants to audit or diagnose SEO, or asks why traffic dropped, a page won't rank, or whether a setup like canonicals, hreflang, or redirects is right: technical SEO, indexing, Google updates, on-page and titles, Core Web Vitals, local SEO. Start here when someone just says their SEO is bad. For pages at scale, see programmatic-seo. For structured data, see schema. For AI search, see ai-seo.",
+      "license": "MIT",
+      "repository": "https://github.com/coreyhaines31/marketingskills",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/seo-audit"
+      ]
+    },
+    {
       "name": "setup-matt-pocock-skills",
       "description": "Configure this repo for the engineering skills: set up its issue tracker, triage label vocabulary, and domain doc layout. Run once before first use of the other engineering skills.",
       "license": "MIT",
@@ -437,6 +602,17 @@
       ]
     },
     {
+      "name": "skill-creator",
+      "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/anthropics/skills",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/skill-creator"
+      ]
+    },
+    {
       "name": "skill-scanner",
       "description": "Scan agent skills for security issues. Use when asked to \"scan a skill\", \"audit a skill\", \"review skill security\", \"check skill for injection\", \"validate SKILL.md\", or assess whether an agent skill is safe to install. Checks for prompt injection, malicious scripts, excessive permissions, secret exposure, and supply chain risks.",
       "license": "Apache-2.0",
@@ -467,6 +643,17 @@
       "strict": false,
       "skills": [
         "./skills/subagent-driven-development"
+      ]
+    },
+    {
+      "name": "supabase-postgres-best-practices",
+      "description": "Postgres best practices maintained by Supabase, for Postgres running anywhere. Load this skill BEFORE writing or changing anything that lives in a Postgres database: creating or altering tables and columns (including choosing column types), schema design, migrations and declarative schema files, RLS policies and the tests that verify them, indexes, triggers, database functions, queues and scheduled jobs (pg_cron, pgmq), vector/semantic search (pgvector), and restoring dumps (pg_restore) or importing data. Also load it when diagnosing slow queries, high CPU, timeouts, EXPLAIN plans, connection exhaustion, locking, bloat, or rows visible to the wrong user or tenant. This is not just a performance guide \u2014 schema, migration, security, and SQL authoring tasks need these rules too, even for a one-column change or a single query.",
+      "license": "MIT",
+      "repository": "https://github.com/supabase/agent-skills",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/supabase-postgres-best-practices"
       ]
     },
     {
@@ -577,6 +764,17 @@
       "strict": false,
       "skills": [
         "./skills/wait-what"
+      ]
+    },
+    {
+      "name": "webapp-testing",
+      "description": "Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser screenshots, and viewing browser logs.",
+      "license": "Apache-2.0",
+      "repository": "https://github.com/anthropics/skills",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/webapp-testing"
       ]
     },
     {

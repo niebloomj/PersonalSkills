@@ -35,6 +35,38 @@
       "source": "getsentry/skills",
       "upstreamPath": "skills/agents-md"
     },
+    "aws-billing-and-cost-management": {
+      "source": "aws/agent-toolkit-for-aws",
+      "upstreamPath": "skills/core-skills/aws-billing-and-cost-management"
+    },
+    "aws-cdk": {
+      "source": "aws/agent-toolkit-for-aws",
+      "upstreamPath": "skills/core-skills/aws-cdk"
+    },
+    "aws-containers": {
+      "source": "aws/agent-toolkit-for-aws",
+      "upstreamPath": "skills/core-skills/aws-containers"
+    },
+    "aws-deployment": {
+      "source": "aws/agent-toolkit-for-aws",
+      "upstreamPath": "skills/core-skills/aws-deployment"
+    },
+    "aws-messaging-and-streaming": {
+      "source": "aws/agent-toolkit-for-aws",
+      "upstreamPath": "skills/core-skills/aws-messaging-and-streaming"
+    },
+    "aws-observability": {
+      "source": "aws/agent-toolkit-for-aws",
+      "upstreamPath": "skills/core-skills/aws-observability"
+    },
+    "aws-sdk-python-usage": {
+      "source": "aws/agent-toolkit-for-aws",
+      "upstreamPath": "skills/core-skills/aws-sdk-python-usage"
+    },
+    "aws-serverless": {
+      "source": "aws/agent-toolkit-for-aws",
+      "upstreamPath": "skills/core-skills/aws-serverless"
+    },
     "brainstorming": {
       "replaceMarkdown": {
         "superpowers:": ""
@@ -45,6 +77,10 @@
     "break-ui": {
       "source": "emilkowalski/skills",
       "upstreamPath": "skills/break-ui"
+    },
+    "changelog-automation": {
+      "source": "wshobson/agents",
+      "upstreamPath": "plugins/documentation-generation/skills/changelog-automation"
     },
     "chief-of-staff": {
       "source": "mattpocock/skills",
@@ -77,6 +113,10 @@
       "source": "mattpocock/skills",
       "upstreamPath": "skills/engineering/domain-modeling"
     },
+    "e2e-testing-patterns": {
+      "source": "wshobson/agents",
+      "upstreamPath": "plugins/developer-essentials/skills/e2e-testing-patterns"
+    },
     "emil-design-eng": {
       "source": "emilkowalski/skills",
       "upstreamPath": "skills/emil-design-eng"
@@ -87,6 +127,10 @@
       },
       "source": "obra/superpowers",
       "upstreamPath": "skills/executing-plans"
+    },
+    "fastapi": {
+      "source": "fastapi/fastapi",
+      "upstreamPath": "fastapi/.agents/skills/fastapi"
     },
     "find-skills": {
       "source": "vercel-labs/skills",
@@ -103,12 +147,23 @@
       "source": "obra/superpowers",
       "upstreamPath": "skills/finishing-a-development-branch"
     },
+    "gh-address-comments": {
+      "exclude": [
+        "assets/github.png"
+      ],
+      "source": "openai/skills",
+      "upstreamPath": "skills/.curated/gh-address-comments"
+    },
     "gha-security-review": {
       "replaceMarkdown": {
         "allowed-tools: Read Grep Glob Bash Task": "allowed-tools: Read Grep Glob Task"
       },
       "source": "getsentry/skills",
       "upstreamPath": "skills/gha-security-review"
+    },
+    "github-actions-templates": {
+      "source": "wshobson/agents",
+      "upstreamPath": "plugins/cicd-automation/skills/github-actions-templates"
     },
     "gpt-image-2": {
       "exclude": [
@@ -169,6 +224,10 @@
       "source": "microsoft/playwright-cli",
       "upstreamPath": "skills/playwright-cli"
     },
+    "python-testing-patterns": {
+      "source": "wshobson/agents",
+      "upstreamPath": "plugins/python-development/skills/python-testing-patterns"
+    },
     "receiving-code-review": {
       "replaceMarkdown": {
         "superpowers:": ""
@@ -216,6 +275,10 @@
       "upstreamName": "code-review",
       "upstreamPath": "skills/code-review"
     },
+    "seo-audit": {
+      "source": "coreyhaines31/marketingskills",
+      "upstreamPath": "skills/seo-audit"
+    },
     "setup-matt-pocock-skills": {
       "manual": true,
       "source": "mattpocock/skills",
@@ -228,6 +291,13 @@
     "sharp-edges": {
       "source": "trailofbits/skills",
       "upstreamPath": "plugins/sharp-edges/skills/sharp-edges"
+    },
+    "skill-creator": {
+      "exclude": [
+        "scripts/__init__.py"
+      ],
+      "source": "anthropics/skills",
+      "upstreamPath": "skills/skill-creator"
     },
     "skill-scanner": {
       "replaceMarkdown": {
@@ -248,6 +318,10 @@
       },
       "source": "obra/superpowers",
       "upstreamPath": "skills/subagent-driven-development"
+    },
+    "supabase-postgres-best-practices": {
+      "source": "supabase/agent-skills",
+      "upstreamPath": "skills/supabase-postgres-best-practices"
     },
     "systematic-debugging": {
       "replaceMarkdown": {
@@ -304,6 +378,10 @@
       "source": "mattpocock/skills",
       "upstreamPath": "skills/productivity/wait-what"
     },
+    "webapp-testing": {
+      "source": "anthropics/skills",
+      "upstreamPath": "skills/webapp-testing"
+    },
     "writing-for-agents": {
       "source": "mattpocock/skills",
       "upstreamPath": "skills/productivity/writing-for-agents"
@@ -330,6 +408,18 @@
       "licensePath": "LICENSE",
       "ref": "18d61002379d024d8754318171479968c68ff6c4"
     },
+    "anthropics/skills": {
+      "license": "Apache-2.0",
+      "licenseFile": "licenses/anthropics-skills-LICENSE.txt",
+      "licensePath": "skills/skill-creator/LICENSE.txt",
+      "ref": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"
+    },
+    "aws/agent-toolkit-for-aws": {
+      "license": "Apache-2.0",
+      "licenseFile": "licenses/aws-agent-toolkit-for-aws-LICENSE",
+      "licensePath": "LICENSE",
+      "ref": "47ed303aa65af0f99bc820318b7f2cd178f455da"
+    },
     "ayghri/i-have-adhd": {
       "license": "MIT",
       "licenseFile": "licenses/ayghri-i-have-adhd-LICENSE",
@@ -353,6 +443,12 @@
       "licenseFile": "licenses/emilkowalski-skills-LICENSE",
       "licensePath": "LICENSE",
       "ref": "64eb3deb9a5fbfa041faf783e0bc3fd635872e9c"
+    },
+    "fastapi/fastapi": {
+      "license": "MIT",
+      "licenseFile": "licenses/fastapi-fastapi-LICENSE",
+      "licensePath": "LICENSE",
+      "ref": "821d37eec1b8ef4cd00d8fac73ecdb54aa94c847"
     },
     "getsentry/skills": {
       "license": "Apache-2.0",
@@ -396,6 +492,12 @@
       "licensePath": "skills/.curated/security-best-practices/LICENSE.txt",
       "ref": "49f948faa9258a0c61caceaf225e179651397431"
     },
+    "supabase/agent-skills": {
+      "license": "MIT",
+      "licenseFile": "licenses/supabase-agent-skills-LICENSE",
+      "licensePath": "LICENSE",
+      "ref": "c9be0e931b7930f7d02126d04774d904c381e7d7"
+    },
     "trailofbits/skills": {
       "license": "CC-BY-SA-4.0",
       "licenseFile": "licenses/trailofbits-skills-LICENSE",
@@ -413,6 +515,12 @@
       "licenseFile": "licenses/vercel-labs-skills-LICENSE",
       "licensePath": "LICENSE",
       "ref": "b716f9dc2ba36b6aa8f0080615e5a3a6caeac63b"
+    },
+    "wshobson/agents": {
+      "license": "MIT",
+      "licenseFile": "licenses/wshobson-agents-LICENSE",
+      "licensePath": "LICENSE",
+      "ref": "42203085cfc5736204bf0f6d436dff7e1da0bf3f"
     }
   }
 }
