@@ -129,10 +129,10 @@ def load_skills(repository: Path) -> dict[str, Any]:
             raise ValueError(f"Missing or unsafe catalog skill: {name}")
         files = {}
         for path in folder.rglob("*"):
-            if is_ignored(path, repository, ignored):
-                continue
             if path.is_symlink():
                 raise ValueError(f"Catalog companions cannot be symlinks: {path}")
+            if is_ignored(path, repository, ignored):
+                continue
             if path.is_file():
                 files[path.relative_to(folder).as_posix()] = path.read_bytes()
         validate_skill(name, files)

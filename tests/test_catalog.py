@@ -53,6 +53,19 @@ class CatalogTests(unittest.TestCase):
                 self.assertEqual(set(update_skills.current_files("demo")), {"SKILL.md"})
                 self.assertEqual(update_skills.current_executables("demo"), set())
 
+    def test_an_enclosing_repository_does_not_decide_what_is_ignored(self):
+        with tempfile.TemporaryDirectory() as directory:
+            parent = Path(directory)
+            subprocess.run(["git", "init", "-q", str(parent)], check=True)
+            (parent / ".gitignore").write_text("*.md\n")
+            root = parent / "copy"
+            (root / "skills/demo").mkdir(parents=True)
+            (root / "skills/demo/SKILL.md").write_text(
+                "---\nname: demo\ndescription: Demo skill.\n---\n"
+            )
+            with patch.object(update_skills, "ROOT", root):
+                self.assertEqual(set(update_skills.current_files("demo")), {"SKILL.md"})
+
     def test_skills_that_read_untrusted_files_ask_before_running_shell_commands(self):
         skills = Path(__file__).resolve().parents[1] / "skills"
         for name in ("agentic-actions-auditor", "gha-security-review", "skill-scanner"):

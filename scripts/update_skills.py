@@ -32,6 +32,7 @@ RAW = "https://raw.githubusercontent.com"
 MAX_FILE_BYTES = 5_000_000
 MAX_SKILL_BYTES = 20_000_000
 MAX_ACTIVITY_PAGES = 10
+GIT_TIMEOUT_SECONDS = 60
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 ZERO_SHA = "0" * 40
 NEXT_PAGE = re.compile(r'<([^>]+)>;\s*rel="next"')
@@ -333,13 +334,33 @@ def load_catalog() -> dict[str, Any]:
 
 
 def ignored_paths(root: Path) -> set[str]:
-    command = ["git", "-C", str(root), "ls-files", "-z", "--others", "--ignored"]
-    command += ["--exclude-standard", "--directory", "--", "skills"]
-    try:
-        result = subprocess.run(command, capture_output=True, check=False)
-    except OSError:
+    def git(*arguments: str) -> subprocess.CompletedProcess[bytes] | None:
+        try:
+            return subprocess.run(
+                ["git", "-C", str(root), *arguments],
+                capture_output=True,
+                check=False,
+                timeout=GIT_TIMEOUT_SECONDS,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+
+    top = git("rev-parse", "--show-toplevel")
+    if top is None or top.returncode:
         return set()
-    if result.returncode:
+    if Path(top.stdout.decode("utf-8", "surrogateescape").strip()).resolve() != root.resolve():
+        return set()
+    result = git(
+        "ls-files",
+        "-z",
+        "--others",
+        "--ignored",
+        "--exclude-standard",
+        "--directory",
+        "--",
+        "skills",
+    )
+    if result is None or result.returncode:
         return set()
     return {
         entry for entry in result.stdout.decode("utf-8", "surrogateescape").split("\0") if entry
@@ -369,10 +390,10 @@ def validate_local(catalog: dict[str, Any]) -> None:
         folder = repository_path(f"skills/{name}")
         files: dict[str, bytes] = {}
         for path in folder.rglob("*"):
-            if is_ignored(path, ROOT, ignored):
-                continue
             if path.is_symlink():
                 raise ValueError(f"{name}: symlinks are not permitted in the catalog")
+            if is_ignored(path, ROOT, ignored):
+                continue
             if path.is_file():
                 files[path.relative_to(folder).as_posix()] = path.read_bytes()
         validate_skill(name, files)
@@ -661,10 +682,10 @@ def current_files(name: str) -> dict[str, bytes]:
         raise ValueError(f"Missing or unsafe catalog folder: skills/{name}")
     ignored = ignored_paths(ROOT)
     for path in folder.rglob("*"):
-        if is_ignored(path, ROOT, ignored):
-            continue
         if path.is_symlink():
             raise ValueError(f"{name}: symlinks are not permitted in the catalog")
+        if is_ignored(path, ROOT, ignored):
+            continue
         if path.is_file():
             files[path.relative_to(folder).as_posix()] = path.read_bytes()
     return files

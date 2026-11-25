@@ -63,6 +63,12 @@ class SyncTests(unittest.TestCase):
         module.synchronize(self.repo, self.home, apply=True)
         self.assertEqual(module.audit(self.repo, self.home), [])
 
+    def test_ignored_symlinks_are_still_rejected(self):
+        self.git_repository("linked\n")
+        (self.repo / "skills/sentry-code-review/linked").symlink_to(self.root)
+        with self.assertRaisesRegex(ValueError, "cannot be symlinks"):
+            self.module().synchronize(self.repo, self.home, apply=True)
+
     def test_committed_binary_files_still_fail_validation(self):
         self.git_repository(".DS_Store\n")
         junk = self.repo / "skills/sentry-code-review/.DS_Store"
