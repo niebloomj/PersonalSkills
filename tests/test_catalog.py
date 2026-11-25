@@ -1,4 +1,5 @@
 import difflib
+import gzip
 import hashlib
 import io
 import json
@@ -503,6 +504,26 @@ class CatalogTests(unittest.TestCase):
             lambda repository, ref, path: files[path],
         )
         self.assertEqual(fetched["guide.md"], b"Guide.\n")
+
+    def test_a_corrupt_archive_falls_back_to_fetching_each_file(self):
+        files = {
+            "skills/docs/SKILL.md": b"---\nname: docs\ndescription: Write docs.\n---\n",
+            "skills/docs/guide.md": b"Guide line.\n" * 9000,
+        }
+        tree, _ = self.archive_fixture(files, {})
+        tar = gzip.decompress(self.archive_bytes(files))
+        stored = bytearray(gzip.compress(tar, compresslevel=0))
+        second_block = 15 + int.from_bytes(stored[11:13], "little")
+        stored[second_block + 3] ^= 0xFF
+        read = []
+
+        def read_source(repository, ref, path):
+            read.append(path)
+            return files[path]
+
+        fetched, _ = self.fetch_from_archive(tree, self.served(bytes(stored)), read_source)
+        self.assertEqual(fetched["guide.md"], files["skills/docs/guide.md"])
+        self.assertEqual(sorted(read), sorted(files))
 
     def test_license_notices_come_from_the_same_archive(self):
         notice = b"MIT License.\n"
