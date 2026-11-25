@@ -177,7 +177,7 @@ class UpstreamUpdateTests(unittest.TestCase):
     def marketplace(self):
         return self.root / ".claude-plugin/marketplace.json"
 
-    def fetch(self, repository, ref, source_path, name, tree_cache, exclude=None):
+    def fetch(self, repository, ref, source_path, name, tree_cache, exclude=None, *, archive_paths):
         tree_cache[(repository, ref)] = {
             "tree": [
                 {

@@ -5,21 +5,22 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import io
 import json
 import os
 import re
+import select
 import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import unicodedata
 import urllib.parse
 from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import IO, Any
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG_PATH = ROOT / "catalog.json"
@@ -36,10 +37,13 @@ MAX_FILE_BYTES = 5_000_000
 MAX_SKILL_BYTES = 20_000_000
 MAX_ACTIVITY_PAGES = 10
 MAX_ARCHIVE_BYTES = 200_000_000
+ARCHIVE_CHUNK_BYTES = 65_536
 ARCHIVE_TIMEOUT_SECONDS = 300
+ARCHIVE_EXIT_SECONDS = 1
 GIT_TIMEOUT_SECONDS = 60
-ARCHIVES: dict[tuple[str, str], dict[str, bytes]] = {}
+ARCHIVES: dict[tuple[str, str, tuple[str, ...]], dict[str, bytes] | None] = {}
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+TREE_ENDPOINT = re.compile(r"repos/[^/]+/[^/]+/git/trees/[0-9a-f]{40}\?recursive=1")
 ZERO_SHA = "0" * 40
 NEXT_PAGE = re.compile(r'<([^>]+)>;\s*rel="next"')
 AUTOMATIC_SUFFIXES = {".md", ".txt"}
@@ -62,14 +66,14 @@ ROOT_PLUGIN_COMPONENTS = (
 )
 
 
-def request(url: str, *, include_headers: bool = False, timeout: int = 60) -> bytes:
+def request(url: str, *, include_headers: bool = False) -> bytes:
     parsed = urllib.parse.urlsplit(url)
     if parsed.hostname == "api.github.com":
         endpoint = parsed.path.lstrip("/") + ("?" + parsed.query if parsed.query else "")
         arguments = ["gh", "api", endpoint]
         if include_headers:
             arguments.append("--include")
-        if "/git/trees/" in endpoint or "/tarball/" in endpoint:
+        if TREE_ENDPOINT.fullmatch(endpoint):
             arguments.extend(["--cache", "24h"])
     elif parsed.hostname == "raw.githubusercontent.com":
         owner, repository, ref, path = parsed.path.lstrip("/").split("/", 3)
@@ -84,7 +88,7 @@ def request(url: str, *, include_headers: bool = False, timeout: int = 60) -> by
         ]
     else:
         raise ValueError(f"Unsupported upstream host: {parsed.hostname}")
-    result = subprocess.run(arguments, capture_output=True, timeout=timeout, check=False)
+    result = subprocess.run(arguments, capture_output=True, timeout=60, check=False)
     if result.returncode:
         raise ValueError(result.stderr.decode("utf-8", errors="replace").strip())
     return result.stdout
@@ -653,46 +657,124 @@ def git_blob_id(data: bytes) -> str:
     return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
 
-def unpack_archive(data: bytes) -> dict[str, bytes]:
+class ArchiveStream:
+    def __init__(self, stream: IO[bytes]) -> None:
+        self.stream = stream
+        self.deadline = time.monotonic() + ARCHIVE_TIMEOUT_SECONDS
+        self.remaining = MAX_ARCHIVE_BYTES
+
+    def read(self, size: int) -> bytes:
+        wait = self.deadline - time.monotonic()
+        if wait <= 0 or not select.select([self.stream], [], [], wait)[0]:
+            raise ValueError(f"download took longer than {ARCHIVE_TIMEOUT_SECONDS} seconds")
+        data = self.stream.read(size)
+        self.remaining -= len(data)
+        if self.remaining < 0:
+            raise ValueError(f"download exceeds {MAX_ARCHIVE_BYTES} bytes")
+        return data
+
+
+def archive_command(repository: str, ref: str) -> list[str]:
+    return ["gh", "api", f"repos/{repository}/tarball/{ref}"]
+
+
+def unpack_archive(stream: ArchiveStream, paths: tuple[str, ...]) -> dict[str, bytes]:
     files: dict[str, bytes] = {}
     total = 0
-    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
+    with tarfile.open(fileobj=stream, mode="r|gz") as archive:
         for member in archive:
             path = member.name.partition("/")[2]
-            if not member.isreg() or not path or member.size > MAX_FILE_BYTES:
+            if not member.isreg() or not path.startswith(paths) or member.size > MAX_FILE_BYTES:
                 continue
             total += member.size
             if total > MAX_ARCHIVE_BYTES:
-                return {}
+                raise ValueError(f"files kept from the archive exceed {MAX_ARCHIVE_BYTES} bytes")
             handle = archive.extractfile(member)
             if handle is not None:
                 files[path] = handle.read()
     return files
 
 
-def archive_files(repository: str, ref: str) -> dict[str, bytes]:
-    key = (repository, ref)
-    if key not in ARCHIVES:
-        url = f"{API}/repos/{repository}/tarball/{ref}"
+def download_archive(repository: str, ref: str, paths: tuple[str, ...]) -> dict[str, bytes]:
+    with tempfile.TemporaryFile() as errors:
+        process = subprocess.Popen(
+            archive_command(repository, ref), stdout=subprocess.PIPE, stderr=errors, bufsize=0
+        )
+        failure: Exception | None = None
         try:
-            data = request(url, timeout=ARCHIVE_TIMEOUT_SECONDS)
-            files = unpack_archive(data) if len(data) <= MAX_ARCHIVE_BYTES else {}
-        except (ValueError, OSError, EOFError, tarfile.TarError, subprocess.TimeoutExpired):
-            files = {}
-        ARCHIVES[key] = files
+            stream = ArchiveStream(process.stdout)
+            files = unpack_archive(stream, paths)
+            while stream.read(ARCHIVE_CHUNK_BYTES):
+                pass
+        except (OSError, ValueError, tarfile.TarError) as error:
+            failure = error
+        finally:
+            process.stdout.close()
+        try:
+            status = process.wait(timeout=ARCHIVE_EXIT_SECONDS)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            status = process.wait()
+        if status > 0:
+            errors.seek(0)
+            detail = errors.read(MAX_FILE_BYTES).decode("utf-8", errors="replace").strip()
+            raise ValueError(detail or f"gh exited with status {status}") from failure
+        if failure is not None:
+            raise failure
+    return files
+
+
+def archive_files(repository: str, ref: str, paths: tuple[str, ...]) -> dict[str, bytes] | None:
+    key = (repository, ref, paths)
+    if key not in ARCHIVES:
+        try:
+            ARCHIVES[key] = download_archive(repository, ref, paths)
+        except (OSError, ValueError, tarfile.TarError) as error:
+            print(
+                f"Could not use the {repository} archive at {ref[:12]} ({error}); "
+                "fetching its files one at a time.",
+                file=sys.stderr,
+            )
+            ARCHIVES[key] = None
     return ARCHIVES[key]
 
 
-def read_blob(repository: str, ref: str, path: str, blob: str | None) -> bytes:
-    if blob:
-        data = archive_files(repository, ref).get(path)
+def catalog_paths(catalog: dict[str, Any], repository: str) -> tuple[str, ...]:
+    prefixes = {
+        source_prefix(skill["upstreamPath"])
+        for skill in catalog["skills"].values()
+        if skill.get("source") == repository
+    }
+    return (*sorted(prefixes), catalog["sources"][repository]["licensePath"])
+
+
+def read_blob(
+    repository: str, ref: str, path: str, blob: str | None, archive_paths: tuple[str, ...]
+) -> bytes:
+    archive = archive_files(repository, ref, archive_paths) if blob and archive_paths else None
+    if archive is not None:
+        data = archive.get(path)
         if data and git_blob_id(data) == blob:
             return data
-    return read_source(repository, ref, path)
+        if data is None or git_blob_id(data) != blob:
+            problem = "is missing from" if data is None else "does not match its blob in"
+            print(
+                f"{repository}: {path} {problem} the archive; fetching it on its own.",
+                file=sys.stderr,
+            )
+    data = read_source(repository, ref, path)
+    if blob and git_blob_id(data) != blob:
+        raise ValueError(f"{repository}: {path} does not match the blob recorded at {ref}")
+    return data
 
 
 def read_license(
-    repository: str, ref: str, path: str, tree_cache: dict[tuple[str, str], dict[str, Any]]
+    repository: str,
+    ref: str,
+    path: str,
+    tree_cache: dict[tuple[str, str], dict[str, Any]],
+    *,
+    archive_paths: tuple[str, ...],
 ) -> bytes:
     entries = tree_cache.get((repository, ref), {}).get("tree", [])
     blob = next(
@@ -703,7 +785,7 @@ def read_license(
         ),
         None,
     )
-    return read_blob(repository, ref, path, blob)
+    return read_blob(repository, ref, path, blob, archive_paths)
 
 
 def fetch_skill(
@@ -713,6 +795,8 @@ def fetch_skill(
     name: str,
     tree_cache: dict[tuple[str, str], dict[str, Any]],
     exclude: list[str] | None = None,
+    *,
+    archive_paths: tuple[str, ...],
 ) -> dict[str, bytes]:
     key = (repository, ref)
     if key not in tree_cache:
@@ -728,7 +812,7 @@ def fetch_skill(
         safe_relative_path(relative)
         if any(PurePosixPath(relative).match(pattern) for pattern in exclude or []):
             continue
-        data = read_blob(repository, ref, entry["path"], entry.get("sha"))
+        data = read_blob(repository, ref, entry["path"], entry.get("sha"), archive_paths)
         total += len(data)
         if total > MAX_SKILL_BYTES:
             raise ValueError(f"{name}: skill exceeds {MAX_SKILL_BYTES} bytes")
@@ -769,12 +853,19 @@ def verify_pins(catalog: dict[str, Any]) -> None:
                 skill.get("upstreamName", name),
                 tree_cache,
                 exclude=skill.get("exclude"),
+                archive_paths=catalog_paths(catalog, skill["source"]),
             ),
         )
         if pinned_files != current_files(name):
             raise ValueError(f"skills/{name} does not match its pinned upstream source")
     for repository, details in catalog["sources"].items():
-        license_data = read_license(repository, details["ref"], details["licensePath"], tree_cache)
+        license_data = read_license(
+            repository,
+            details["ref"],
+            details["licensePath"],
+            tree_cache,
+            archive_paths=catalog_paths(catalog, repository),
+        )
         license_path = repository_path(details["licenseFile"])
         if license_data != license_path.read_bytes():
             raise ValueError(
@@ -831,6 +922,7 @@ def vendor_catalog(catalog: dict[str, Any]) -> None:
                     skill.get("upstreamName", name),
                     tree_cache,
                     exclude=skill.get("exclude"),
+                    archive_paths=catalog_paths(catalog, skill["source"]),
                 ),
             )
             stage_skill(staging / "skills" / name, skill, source["ref"], files, tree_cache)
@@ -839,7 +931,13 @@ def vendor_catalog(catalog: dict[str, Any]) -> None:
             print(f"Staged skills/{name}", flush=True)
         for repository, source in catalog["sources"].items():
             relative = Path(safe_relative_path(source["licenseFile"]).as_posix())
-            data = read_license(repository, source["ref"], source["licensePath"], tree_cache)
+            data = read_license(
+                repository,
+                source["ref"],
+                source["licensePath"],
+                tree_cache,
+                archive_paths=catalog_paths(catalog, repository),
+            )
             data.decode("utf-8")
             target = staging / relative
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -910,6 +1008,7 @@ def source_change(
                 skill.get("upstreamName", name),
                 tree_cache,
                 exclude=skill.get("exclude"),
+                archive_paths=catalog_paths(catalog, repository),
             ),
         )
         old_files = current_files(name)
@@ -920,7 +1019,13 @@ def source_change(
         if files != old_files or new_executables != old_executables:
             updates[name] = files
             reasons.extend(review_reasons(name, old_files, files, old_executables, new_executables))
-    license_data = read_license(repository, candidate, details["licensePath"], tree_cache)
+    license_data = read_license(
+        repository,
+        candidate,
+        details["licensePath"],
+        tree_cache,
+        archive_paths=catalog_paths(catalog, repository),
+    )
     license_data.decode("utf-8")
     license_file = repository_path(details["licenseFile"])
     if not license_file.is_file():
