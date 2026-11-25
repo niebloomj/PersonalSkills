@@ -42,6 +42,7 @@ ARCHIVE_TIMEOUT_SECONDS = 300
 GIT_TIMEOUT_SECONDS = 60
 ARCHIVES: dict[tuple[str, str, tuple[str, ...]], dict[str, bytes]] = {}
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+TREE_ENDPOINT = re.compile(r"repos/[^/]+/[^/]+/git/trees/[0-9a-f]{40}\?recursive=1")
 ZERO_SHA = "0" * 40
 NEXT_PAGE = re.compile(r'<([^>]+)>;\s*rel="next"')
 AUTOMATIC_SUFFIXES = {".md", ".txt"}
@@ -71,7 +72,7 @@ def request(url: str, *, include_headers: bool = False) -> bytes:
         arguments = ["gh", "api", endpoint]
         if include_headers:
             arguments.append("--include")
-        if "/git/trees/" in endpoint:
+        if TREE_ENDPOINT.fullmatch(endpoint):
             arguments.extend(["--cache", "24h"])
     elif parsed.hostname == "raw.githubusercontent.com":
         owner, repository, ref, path = parsed.path.lstrip("/").split("/", 3)

@@ -588,6 +588,22 @@ class CatalogTests(unittest.TestCase):
         ):
             self.download(self.served(archive))
 
+    def test_only_tree_lookups_by_commit_are_cached(self):
+        commands = []
+
+        def run(arguments, **options):
+            commands.append(arguments)
+            return subprocess.CompletedProcess(arguments, 0, b"{}", b"")
+
+        with patch.object(update_skills.subprocess, "run", side_effect=run):
+            for endpoint in (
+                f"repos/example/skills/git/trees/{'a' * 40}?recursive=1",
+                "repos/git/trees/commits/main",
+                "repos/example/skills/git/trees/main?recursive=1",
+            ):
+                update_skills.request(f"{update_skills.API}/{endpoint}")
+        self.assertEqual(["--cache" in command for command in commands], [True, False, False])
+
     def test_a_stalled_archive_download_times_out(self):
         started = time.monotonic()
         with (
