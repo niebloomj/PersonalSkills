@@ -258,6 +258,9 @@ To import new third-party entries after recording their source, commit, path,
 and license, use `python3 scripts/update_skills.py --vendor`. It stages all
 downloads before replacement, preserves executable companions, and fails closed
 on missing paths, renamed skills, unsafe file types, or oversized content.
+Imports, updates, and pin checks download each source once as an archive and use
+a file from it only when its content matches the blob the commit records; any
+other file is fetched on its own. A full pin check makes about 30 GitHub API calls.
 
 `catalog.json` is tool-written. The updater and `--vendor` write it with sorted
 keys and two-space indentation, and the tests reject any other layout, so update
