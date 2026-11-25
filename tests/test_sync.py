@@ -3,6 +3,7 @@ import io
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -47,6 +48,34 @@ class SyncTests(unittest.TestCase):
         (directory / "SKILL.md").write_text(
             f"---\nname: {name}\ndescription: Review changes.\n---\n\n{body}\n"
         )
+
+    def git_repository(self, ignored):
+        subprocess.run(["git", "init", "-q", str(self.repo)], check=True)
+        (self.repo / ".gitignore").write_text(ignored)
+
+    def test_files_git_ignores_do_not_block_the_sync(self):
+        self.git_repository("__pycache__/\n.DS_Store\n")
+        folder = self.repo / "skills/sentry-code-review"
+        (folder / "scripts/__pycache__").mkdir(parents=True)
+        (folder / "scripts/__pycache__/helper.cpython-312.pyc").write_bytes(b"\0compiled")
+        (folder / ".DS_Store").write_bytes(b"\0\0\0\1Bud1")
+        module = self.module()
+        module.synchronize(self.repo, self.home, apply=True)
+        self.assertEqual(module.audit(self.repo, self.home), [])
+
+    def test_ignored_symlinks_are_still_rejected(self):
+        self.git_repository("linked\n")
+        (self.repo / "skills/sentry-code-review/linked").symlink_to(self.root)
+        with self.assertRaisesRegex(ValueError, "cannot be symlinks"):
+            self.module().synchronize(self.repo, self.home, apply=True)
+
+    def test_committed_binary_files_still_fail_validation(self):
+        self.git_repository(".DS_Store\n")
+        junk = self.repo / "skills/sentry-code-review/.DS_Store"
+        junk.write_bytes(b"\0\0\0\1Bud1")
+        subprocess.run(["git", "-C", str(self.repo), "add", "-f", str(junk)], check=True)
+        with self.assertRaisesRegex(ValueError, "binary content is not permitted"):
+            self.module().synchronize(self.repo, self.home, apply=True)
 
     def test_dry_run_does_not_create_links_or_state(self):
         report = self.module().synchronize(self.repo, self.home, apply=False)

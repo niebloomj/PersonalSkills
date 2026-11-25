@@ -20,7 +20,8 @@ python3 scripts/sync_skills.py --audit
 The first command previews changes without modifying installed skills or profile data. `--apply` backs up
 existing copies and retired entries before replacing them. `--audit` exits
 nonzero for unmanaged, divergent, retired, or unexpectedly nested global skills,
-and for a skipped Codex plugin edit.
+and for a skipped Codex plugin edit. Untracked files that git ignores, such as
+Python caches and `.DS_Store`, don't count; committed files are always checked.
 Re-running an unchanged installation is a no-op.
 
 The installer creates one definition per personal skill:
@@ -184,9 +185,11 @@ approval, scope, and delegation rules still take precedence over imported workfl
 adhd mode". Only its skill folder is vendored; its upstream always-on hooks and
 editor plugins are not included.
 
-`skill-scanner` reads skills that may be hostile, so its upstream pre-approval of
-`Bash` is removed and Claude Code asks before a scan runs a command. A test fails
-if an update brings the grant back.
+`skill-scanner`, `agentic-actions-auditor`, and `gha-security-review` read files
+that someone else may have written, so their upstream pre-approval of `Bash` is
+removed and Claude Code asks before they run a command. Read-only commands such as
+`grep` and `cat` still run without asking. A test fails if an update brings a grant
+back.
 
 ## Add your own skill
 

@@ -32,6 +32,7 @@ RAW = "https://raw.githubusercontent.com"
 MAX_FILE_BYTES = 5_000_000
 MAX_SKILL_BYTES = 20_000_000
 MAX_ACTIVITY_PAGES = 10
+GIT_TIMEOUT_SECONDS = 60
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 ZERO_SHA = "0" * 40
 NEXT_PAGE = re.compile(r'<([^>]+)>;\s*rel="next"')
@@ -332,9 +333,55 @@ def load_catalog() -> dict[str, Any]:
     return catalog
 
 
+def ignored_paths(root: Path) -> set[str]:
+    def git(*arguments: str) -> subprocess.CompletedProcess[bytes] | None:
+        try:
+            return subprocess.run(
+                ["git", "-C", str(root), *arguments],
+                capture_output=True,
+                check=False,
+                timeout=GIT_TIMEOUT_SECONDS,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+
+    top = git("rev-parse", "--show-toplevel")
+    if top is None or top.returncode:
+        return set()
+    if Path(top.stdout.decode("utf-8", "surrogateescape").strip()).resolve() != root.resolve():
+        return set()
+    result = git(
+        "ls-files",
+        "-z",
+        "--others",
+        "--ignored",
+        "--exclude-standard",
+        "--directory",
+        "--",
+        "skills",
+    )
+    if result is None or result.returncode:
+        return set()
+    return {
+        entry for entry in result.stdout.decode("utf-8", "surrogateescape").split("\0") if entry
+    }
+
+
+def is_ignored(path: Path, root: Path, ignored: set[str]) -> bool:
+    relative = path.relative_to(root).as_posix()
+    return relative in ignored or any(
+        entry.endswith("/") and f"{relative}/".startswith(entry) for entry in ignored
+    )
+
+
 def validate_local(catalog: dict[str, Any]) -> None:
+    ignored = ignored_paths(ROOT)
     expected_dirs = {name for name in catalog["skills"]}
-    actual_dirs = {path.name for path in repository_path("skills").iterdir() if path.is_dir()}
+    actual_dirs = {
+        path.name
+        for path in repository_path("skills").iterdir()
+        if path.is_dir() and not is_ignored(path, ROOT, ignored)
+    }
     if actual_dirs != expected_dirs:
         raise ValueError(
             f"Catalog folder mismatch; missing={sorted(expected_dirs - actual_dirs)}, extra={sorted(actual_dirs - expected_dirs)}"
@@ -345,6 +392,8 @@ def validate_local(catalog: dict[str, Any]) -> None:
         for path in folder.rglob("*"):
             if path.is_symlink():
                 raise ValueError(f"{name}: symlinks are not permitted in the catalog")
+            if is_ignored(path, ROOT, ignored):
+                continue
             if path.is_file():
                 files[path.relative_to(folder).as_posix()] = path.read_bytes()
         validate_skill(name, files)
@@ -409,10 +458,14 @@ def pin_relation(repository: str, current: str, candidate: str) -> str:
 
 def current_executables(name: str) -> set[str]:
     folder = repository_path(f"skills/{name}")
+    ignored = ignored_paths(ROOT)
     return {
         path.relative_to(folder).as_posix()
         for path in folder.rglob("*")
-        if path.is_file() and not path.is_symlink() and path.stat().st_mode & 0o111
+        if path.is_file()
+        and not path.is_symlink()
+        and path.stat().st_mode & 0o111
+        and not is_ignored(path, ROOT, ignored)
     }
 
 
@@ -627,9 +680,12 @@ def current_files(name: str) -> dict[str, bytes]:
     files: dict[str, bytes] = {}
     if not folder.is_dir() or folder.is_symlink():
         raise ValueError(f"Missing or unsafe catalog folder: skills/{name}")
+    ignored = ignored_paths(ROOT)
     for path in folder.rglob("*"):
         if path.is_symlink():
             raise ValueError(f"{name}: symlinks are not permitted in the catalog")
+        if is_ignored(path, ROOT, ignored):
+            continue
         if path.is_file():
             files[path.relative_to(folder).as_posix()] = path.read_bytes()
     return files
