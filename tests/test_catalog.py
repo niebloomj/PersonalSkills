@@ -1,9 +1,12 @@
 import difflib
+import hashlib
+import io
 import json
 import os
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
@@ -411,6 +414,101 @@ class CatalogTests(unittest.TestCase):
                 update_skills.vendor_catalog(catalog)
             self.assertEqual(catalog_path.read_text(encoding="utf-8"), edited)
             self.assertFalse((root / "skills/helper").exists())
+
+    def archive_fixture(self, recorded, archived):
+        def blob(data):
+            return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+        tree = {
+            "tree": [
+                {"path": path, "type": "blob", "mode": "100644", "sha": blob(data)}
+                for path, data in recorded.items()
+            ]
+        }
+        buffer = io.BytesIO()
+        with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+            for path, data in archived.items():
+                info = tarfile.TarInfo(f"example-skills-abc1234/{path}")
+                info.size = len(data)
+                archive.addfile(info, io.BytesIO(data))
+        return tree, buffer.getvalue()
+
+    def fetch_from_archive(self, tree, response, read_source):
+        requests = []
+
+        def request(url, **options):
+            requests.append(url)
+            if isinstance(response, Exception):
+                raise response
+            return response
+
+        with (
+            patch.dict(update_skills.ARCHIVES, clear=True),
+            patch.object(update_skills, "request", side_effect=request),
+            patch.object(update_skills, "read_source", side_effect=read_source),
+        ):
+            files = update_skills.fetch_skill(
+                "example/skills",
+                "a" * 40,
+                "skills/docs",
+                "docs",
+                {("example/skills", "a" * 40): tree},
+            )
+        return files, requests
+
+    def test_skill_files_come_from_one_archive_download(self):
+        files = {
+            "skills/docs/SKILL.md": b"---\nname: docs\ndescription: Write docs.\n---\n",
+            "skills/docs/guide.md": b"Guide.\n",
+        }
+        tree, archive = self.archive_fixture(files, {**files, "README.md": b"Readme.\n"})
+        fetched, requests = self.fetch_from_archive(
+            tree, archive, AssertionError("a file was fetched on its own")
+        )
+        self.assertEqual(
+            fetched, {path.removeprefix("skills/docs/"): data for path, data in files.items()}
+        )
+        self.assertEqual(requests, [f"{update_skills.API}/repos/example/skills/tarball/{'a' * 40}"])
+
+    def test_archive_files_that_differ_from_the_recorded_blob_are_fetched_on_their_own(self):
+        skill = b"---\nname: docs\ndescription: Write docs.\n---\n"
+        recorded = {"skills/docs/SKILL.md": skill, "skills/docs/guide.md": b"Recorded guide.\n"}
+        archived = {"skills/docs/SKILL.md": skill, "skills/docs/guide.md": b"Rewritten guide.\n"}
+        tree, archive = self.archive_fixture(recorded, archived)
+        read = []
+
+        def read_source(repository, ref, path):
+            read.append(path)
+            return recorded[path]
+
+        fetched, _ = self.fetch_from_archive(tree, archive, read_source)
+        self.assertEqual(fetched["guide.md"], b"Recorded guide.\n")
+        self.assertEqual(read, ["skills/docs/guide.md"])
+
+    def test_a_failed_archive_download_falls_back_to_fetching_each_file(self):
+        files = {
+            "skills/docs/SKILL.md": b"---\nname: docs\ndescription: Write docs.\n---\n",
+            "skills/docs/guide.md": b"Guide.\n",
+        }
+        tree, _ = self.archive_fixture(files, {})
+        fetched, _ = self.fetch_from_archive(
+            tree, ValueError("HTTP 502"), lambda repository, ref, path: files[path]
+        )
+        self.assertEqual(fetched["guide.md"], b"Guide.\n")
+
+    def test_license_notices_come_from_the_same_archive(self):
+        notice = b"MIT License.\n"
+        tree, _ = self.archive_fixture({"LICENSE": notice}, {})
+        with (
+            patch.dict(update_skills.ARCHIVES, {("example/skills", "a" * 40): {"LICENSE": notice}}),
+            patch.object(update_skills, "read_source", side_effect=AssertionError("fetched alone")),
+        ):
+            self.assertEqual(
+                update_skills.read_license(
+                    "example/skills", "a" * 40, "LICENSE", {("example/skills", "a" * 40): tree}
+                ),
+                notice,
+            )
 
     def test_import_excludes_nonessential_gallery_before_downloading(self):
         tree = {

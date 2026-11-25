@@ -4,12 +4,15 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import io
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unicodedata
 import urllib.parse
@@ -32,7 +35,10 @@ RAW = "https://raw.githubusercontent.com"
 MAX_FILE_BYTES = 5_000_000
 MAX_SKILL_BYTES = 20_000_000
 MAX_ACTIVITY_PAGES = 10
+MAX_ARCHIVE_BYTES = 200_000_000
+ARCHIVE_TIMEOUT_SECONDS = 300
 GIT_TIMEOUT_SECONDS = 60
+ARCHIVES: dict[tuple[str, str], dict[str, bytes]] = {}
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 ZERO_SHA = "0" * 40
 NEXT_PAGE = re.compile(r'<([^>]+)>;\s*rel="next"')
@@ -56,14 +62,14 @@ ROOT_PLUGIN_COMPONENTS = (
 )
 
 
-def request(url: str, *, include_headers: bool = False) -> bytes:
+def request(url: str, *, include_headers: bool = False, timeout: int = 60) -> bytes:
     parsed = urllib.parse.urlsplit(url)
     if parsed.hostname == "api.github.com":
         endpoint = parsed.path.lstrip("/") + ("?" + parsed.query if parsed.query else "")
         arguments = ["gh", "api", endpoint]
         if include_headers:
             arguments.append("--include")
-        if "/git/trees/" in endpoint:
+        if "/git/trees/" in endpoint or "/tarball/" in endpoint:
             arguments.extend(["--cache", "24h"])
     elif parsed.hostname == "raw.githubusercontent.com":
         owner, repository, ref, path = parsed.path.lstrip("/").split("/", 3)
@@ -78,7 +84,7 @@ def request(url: str, *, include_headers: bool = False) -> bytes:
         ]
     else:
         raise ValueError(f"Unsupported upstream host: {parsed.hostname}")
-    result = subprocess.run(arguments, capture_output=True, timeout=60, check=False)
+    result = subprocess.run(arguments, capture_output=True, timeout=timeout, check=False)
     if result.returncode:
         raise ValueError(result.stderr.decode("utf-8", errors="replace").strip())
     return result.stdout
@@ -643,6 +649,63 @@ def read_source(repository: str, ref: str, path: str) -> bytes:
     return data
 
 
+def git_blob_id(data: bytes) -> str:
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def unpack_archive(data: bytes) -> dict[str, bytes]:
+    files: dict[str, bytes] = {}
+    total = 0
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
+        for member in archive:
+            path = member.name.partition("/")[2]
+            if not member.isreg() or not path or member.size > MAX_FILE_BYTES:
+                continue
+            total += member.size
+            if total > MAX_ARCHIVE_BYTES:
+                return {}
+            handle = archive.extractfile(member)
+            if handle is not None:
+                files[path] = handle.read()
+    return files
+
+
+def archive_files(repository: str, ref: str) -> dict[str, bytes]:
+    key = (repository, ref)
+    if key not in ARCHIVES:
+        url = f"{API}/repos/{repository}/tarball/{ref}"
+        try:
+            data = request(url, timeout=ARCHIVE_TIMEOUT_SECONDS)
+            files = unpack_archive(data) if len(data) <= MAX_ARCHIVE_BYTES else {}
+        except (ValueError, OSError, EOFError, tarfile.TarError, subprocess.TimeoutExpired):
+            files = {}
+        ARCHIVES[key] = files
+    return ARCHIVES[key]
+
+
+def read_blob(repository: str, ref: str, path: str, blob: str | None) -> bytes:
+    if blob:
+        data = archive_files(repository, ref).get(path)
+        if data and git_blob_id(data) == blob:
+            return data
+    return read_source(repository, ref, path)
+
+
+def read_license(
+    repository: str, ref: str, path: str, tree_cache: dict[tuple[str, str], dict[str, Any]]
+) -> bytes:
+    entries = tree_cache.get((repository, ref), {}).get("tree", [])
+    blob = next(
+        (
+            entry.get("sha")
+            for entry in entries
+            if entry.get("path") == path and entry.get("type") == "blob"
+        ),
+        None,
+    )
+    return read_blob(repository, ref, path, blob)
+
+
 def fetch_skill(
     repository: str,
     ref: str,
@@ -665,7 +728,7 @@ def fetch_skill(
         safe_relative_path(relative)
         if any(PurePosixPath(relative).match(pattern) for pattern in exclude or []):
             continue
-        data = read_source(repository, ref, entry["path"])
+        data = read_blob(repository, ref, entry["path"], entry.get("sha"))
         total += len(data)
         if total > MAX_SKILL_BYTES:
             raise ValueError(f"{name}: skill exceeds {MAX_SKILL_BYTES} bytes")
@@ -711,7 +774,7 @@ def verify_pins(catalog: dict[str, Any]) -> None:
         if pinned_files != current_files(name):
             raise ValueError(f"skills/{name} does not match its pinned upstream source")
     for repository, details in catalog["sources"].items():
-        license_data = read_source(repository, details["ref"], details["licensePath"])
+        license_data = read_license(repository, details["ref"], details["licensePath"], tree_cache)
         license_path = repository_path(details["licenseFile"])
         if license_data != license_path.read_bytes():
             raise ValueError(
@@ -776,7 +839,7 @@ def vendor_catalog(catalog: dict[str, Any]) -> None:
             print(f"Staged skills/{name}", flush=True)
         for repository, source in catalog["sources"].items():
             relative = Path(safe_relative_path(source["licenseFile"]).as_posix())
-            data = read_source(repository, source["ref"], source["licensePath"])
+            data = read_license(repository, source["ref"], source["licensePath"], tree_cache)
             data.decode("utf-8")
             target = staging / relative
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -857,7 +920,7 @@ def source_change(
         if files != old_files or new_executables != old_executables:
             updates[name] = files
             reasons.extend(review_reasons(name, old_files, files, old_executables, new_executables))
-    license_data = read_source(repository, candidate, details["licensePath"])
+    license_data = read_license(repository, candidate, details["licensePath"], tree_cache)
     license_data.decode("utf-8")
     license_file = repository_path(details["licenseFile"])
     if not license_file.is_file():
