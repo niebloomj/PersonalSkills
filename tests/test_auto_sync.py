@@ -361,6 +361,13 @@ class SyncTests(Isolated):
         self.assertEqual(removed, {"20261001T000004Z-00000004", f"cc-switch-{5:032x}"})
         self.assertIn("Pruned 2 automatic backup(s) older than 30 days.", output)
 
+    def test_a_backup_that_cannot_be_removed_does_not_fail_the_run(self):
+        self.backups()
+        self.patch(auto_sync.shutil, "rmtree", PermissionError("read-only"))
+        code, output = self.sync()
+        self.assertEqual((code, self.notices), (0, []))
+        self.assertIn("Could not prune backup", output)
+
     def test_audit_problems_keep_every_backup(self):
         root = self.backups()
         self.report = {"problems": ["Unmanaged skill: /h/.claude/skills/stray"], "warnings": []}

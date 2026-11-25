@@ -227,7 +227,11 @@ def prune_backups(home: Path, now: datetime) -> int:
         for path in group[BACKUPS_KEPT:]:
             if path.stat().st_mtime >= cutoff or {path.name, path.name.split("-")[0]} & protected:
                 continue
-            shutil.rmtree(path)
+            try:
+                shutil.rmtree(path)
+            except OSError as error:
+                log(f"Could not prune backup {path}: {error}")
+                continue
             removed += 1
     return removed
 
