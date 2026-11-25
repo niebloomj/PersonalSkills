@@ -421,7 +421,7 @@
       "license": "Apache-2.0",
       "licenseFile": "licenses/aws-agent-toolkit-for-aws-LICENSE",
       "licensePath": "LICENSE",
-      "ref": "47ed303aa65af0f99bc820318b7f2cd178f455da"
+      "ref": "522e65e46c4e6f6ab60d1c0c442aad38ab2f20f8"
     },
     "ayghri/i-have-adhd": {
       "license": "MIT",
@@ -475,7 +475,7 @@
       "license": "Apache-2.0",
       "licenseFile": "licenses/microsoft-playwright-cli-LICENSE",
       "licensePath": "LICENSE",
-      "ref": "b21724888b8100b05ef8dee3a92f2bb03bf4dcde"
+      "ref": "a33d9e0ae884997417742ff0474dab85a1410001"
     },
     "obra/superpowers": {
       "license": "MIT",
