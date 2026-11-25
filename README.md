@@ -55,6 +55,10 @@ python3 scripts/auto_sync.py install --apply  # install it; it also runs once no
 python3 scripts/auto_sync.py uninstall --apply
 ```
 
+Instead of the LaunchAgent, you can call `python3 scripts/auto_sync.py run` from a
+script you already run every day, such as a morning routine. It runs the same
+checks as the LaunchAgent.
+
 A run leaves the checkout alone when it is on another branch or has uncommitted
 changes to tracked files. It only fast-forwards, so a `main` that has diverged
 from `origin/main` stops the run. It also fast-forwards only skill content
@@ -65,7 +69,12 @@ your Mac unattended. When CC-Switch manages skills, link changes
 wait until CC-Switch is fully quit. Waiting changes, audit problems, and errors
 raise a macOS notification, as does syncing that stays blocked for more than a
 day (at most once a day). Every run is logged to
-`~/.local/state/personal-skills/auto-sync.log`. `python3 scripts/auto_sync.py run`
+`~/.local/state/personal-skills/auto-sync.log`. After a run whose audit finds no
+problems, it deletes automatic backups older than 30 days. It always keeps the five
+newest link backups, the five newest CC-Switch snapshots, and any backup that a
+manually named folder or file mentions by name or timestamp; manually named
+entries, such as curation receipts, are never removed, and renaming a backup keeps
+it. `python3 scripts/auto_sync.py run`
 performs a run immediately; unlike the commands above, it applies changes without
 a preview.
 
@@ -233,9 +242,11 @@ Plain instruction changes still merge after the wait, so the rule limits what ca
 run commands or grant permissions, not what skill text asks an agent to do. A
 manual run can use a shorter waiting period.
 
-Macs with the sync LaunchAgent pick up merged updates within six hours. Elsewhere,
-pull the catalog and run the sync/audit commands. Do not refresh this collection
-through separate upstream installers.
+Macs that run the sync job pick up merged updates on its next run: within six
+hours with the LaunchAgent, or the next day from a daily script. Elsewhere, pull
+the catalog and run the sync/audit commands. Do not refresh this collection
+through separate upstream installers. Dependabot separately opens a monthly pull
+request when one of the workflow's pinned GitHub Actions has a new release.
 
 ```sh
 python3 -m unittest discover -s tests -v

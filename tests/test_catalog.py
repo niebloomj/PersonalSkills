@@ -193,6 +193,13 @@ class CatalogTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "name changed"):
             validate_skill("expected", {"SKILL.md": content})
 
+    def test_empty_descriptions_are_rejected(self):
+        for front in ('description: ""\n', "description: >\n", "description:\nlicense: MIT\n"):
+            with self.subTest(front=front):
+                files = {"SKILL.md": f"---\nname: demo\n{front}---\n\nBody.\n".encode()}
+                with self.assertRaisesRegex(ValueError, "description is missing or empty"):
+                    validate_skill("demo", files)
+
     def test_valid_quoted_skill_names_are_accepted_without_rewriting(self):
         for quote in ('"', "'"):
             content = (

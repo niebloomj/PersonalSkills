@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from sync_skills import STATE, read_json, within_home
-from update_skills import validate_previous_names
+from update_skills import skill_description, validate_previous_names
 
 
 def ensure_stopped() -> None:
@@ -59,29 +59,9 @@ def content_hash(folder: Path) -> str:
 
 
 def description(folder: Path) -> str:
-    text = (folder / "SKILL.md").read_text(encoding="utf-8")
-    frontmatter = text.split("\n---\n", 1)[0]
-    match = re.search(r"^description:\s*(.*)$", frontmatter, re.MULTILINE)
-    if not match:
+    value = skill_description((folder / "SKILL.md").read_bytes())
+    if not value:
         raise ValueError(f"Skill has no description: {folder}")
-    value = match.group(1).strip()
-    lines = []
-    for line in frontmatter[match.end() :].splitlines():
-        if line and not line.startswith((" ", "\t")):
-            break
-        if line.strip():
-            lines.append(line.strip())
-    if re.fullmatch(r"[>|][+-]?", value):
-        value = " ".join(lines)
-    elif value.startswith('"'):
-        value = json.loads(value)
-    elif value.startswith("'") and value.endswith("'"):
-        value = value[1:-1].replace("''", "'")
-    else:
-        for line in lines:
-            if line.startswith("#"):
-                break
-            value += " " + line
     return value
 
 

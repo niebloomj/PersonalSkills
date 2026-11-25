@@ -332,6 +332,48 @@ class SyncTests(Isolated):
         self.assertEqual((code, self.notices), (auto_sync.NOTIFIED, ["Skill sync crashed: boom"]))
         self.assertIn("Traceback", output)
 
+    def backups(self):
+        root = self.home / sync_skills.STATE / "backups"
+        now = datetime.now(UTC).timestamp()
+        aged = [(f"20261001T00000{index}Z-0000000{index}", 40 + index) for index in range(7)]
+        aged += [(f"cc-switch-{index:032x}", 50 + index) for index in range(7)]
+        for name, days in aged:
+            (root / name).mkdir(parents=True)
+            os.utime(root / name, (now - days * 86400,) * 2)
+        (root / "20261124T000000Z-0000000f").mkdir()
+        receipt = root / "curation-20261001T000000Z-deadbeef"
+        receipt.mkdir()
+        (receipt / "applied.json").write_text(
+            json.dumps(
+                {"backups": [str(root / "20261001T000005Z-00000005"), f"cc-switch-{6:032x}"]}
+            )
+        )
+        os.utime(receipt, (now - 60 * 86400,) * 2)
+        (root / "live-cutover-20261001T000006Z").mkdir()
+        return root
+
+    def test_a_clean_run_prunes_old_automatic_backups_but_keeps_the_newest(self):
+        root = self.backups()
+        before = {path.name for path in root.iterdir()}
+        code, output = self.sync()
+        removed = before - {path.name for path in root.iterdir()}
+        self.assertEqual(code, 0)
+        self.assertEqual(removed, {"20261001T000004Z-00000004", f"cc-switch-{5:032x}"})
+        self.assertIn("Pruned 2 automatic backup(s) older than 30 days.", output)
+
+    def test_a_backup_that_cannot_be_removed_does_not_fail_the_run(self):
+        self.backups()
+        self.patch(auto_sync.shutil, "rmtree", PermissionError("read-only"))
+        code, output = self.sync()
+        self.assertEqual((code, self.notices), (0, []))
+        self.assertIn("Could not prune backup", output)
+
+    def test_audit_problems_keep_every_backup(self):
+        root = self.backups()
+        self.report = {"problems": ["Unmanaged skill: /h/.claude/skills/stray"], "warnings": []}
+        self.sync()
+        self.assertEqual(len(list(root.iterdir())), 17)
+
 
 class FreshHomeTests(Isolated):
     def test_the_real_catalog_links_into_a_fresh_home_and_audits_clean(self):
