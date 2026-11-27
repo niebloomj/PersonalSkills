@@ -433,7 +433,7 @@
       "license": "MIT",
       "licenseFile": "licenses/blader-humanizer-LICENSE",
       "licensePath": "LICENSE",
-      "ref": "b48c832f0f809c1b5658edbb838c2521b72f2413"
+      "ref": "a32f24407364c74c812b43c15926d638bee1e072"
     },
     "coreyhaines31/marketingskills": {
       "license": "MIT",
@@ -451,7 +451,7 @@
       "license": "MIT",
       "licenseFile": "licenses/fastapi-fastapi-LICENSE",
       "licensePath": "LICENSE",
-      "ref": "821d37eec1b8ef4cd00d8fac73ecdb54aa94c847"
+      "ref": "05e6df7e906c3decba377c37548019973f40bf15"
     },
     "getsentry/skills": {
       "license": "Apache-2.0",
