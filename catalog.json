@@ -421,7 +421,7 @@
       "license": "Apache-2.0",
       "licenseFile": "licenses/aws-agent-toolkit-for-aws-LICENSE",
       "licensePath": "LICENSE",
-      "ref": "47ed303aa65af0f99bc820318b7f2cd178f455da"
+      "ref": "cef6c615b1c4182f663ca966961248adebbb9972"
     },
     "ayghri/i-have-adhd": {
       "license": "MIT",
@@ -439,7 +439,7 @@
       "license": "MIT",
       "licenseFile": "licenses/coreyhaines31-marketingskills-LICENSE",
       "licensePath": "LICENSE",
-      "ref": "1f837447b20bb6f0e72d87b80ece1c221c362c7d"
+      "ref": "5b2b400eec1e7e1cec76245a715d0b0d4fd2a9c1"
     },
     "emilkowalski/skills": {
       "license": "MIT",
@@ -463,7 +463,7 @@
       "license": "FSL-1.1-Apache-2.0",
       "licenseFile": "licenses/getsentry-toolkit-cli-LICENSE.md",
       "licensePath": "packages/cli/LICENSE.md",
-      "ref": "560a4dee83872848850f55e726189e0a7607b008"
+      "ref": "7c618d523d43fd94dec2037770f7074bd6b16e68"
     },
     "mattpocock/skills": {
       "license": "MIT",
@@ -475,7 +475,7 @@
       "license": "Apache-2.0",
       "licenseFile": "licenses/microsoft-playwright-cli-LICENSE",
       "licensePath": "LICENSE",
-      "ref": "b21724888b8100b05ef8dee3a92f2bb03bf4dcde"
+      "ref": "c872a33cec77fa03c28fa7c6d1ad99d15d04ce42"
     },
     "obra/superpowers": {
       "license": "MIT",
