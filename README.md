@@ -10,7 +10,7 @@ Requires Python 3.11+, symlink support, and a persistent checkout. GitHub CLI is
 check upstream sources, but installation itself uses only local files.
 
 ```sh
-gh repo clone niebloomj/Skills ~/Documents/PersonalSkills
+gh repo clone niebloomj/PersonalSkills ~/Documents/PersonalSkills
 cd ~/Documents/PersonalSkills
 python3 scripts/sync_skills.py
 python3 scripts/sync_skills.py --apply
@@ -87,19 +87,22 @@ a missing permission, interpreter, or checkout, still raises a notification.
 
 ## Install as Claude Code plugins
 
-This repository is also a Claude Code plugin marketplace, `niebloomj-skills`, with
-one plugin per skill. Use it on machines that don't run the sync:
+This repository is also a Claude Code plugin marketplace, `niebloomj-skills`, that
+bundles every skill into one plugin, also named `niebloomj-skills`. Use it on machines
+that don't run the sync:
 
 ```sh
-claude plugin marketplace add niebloomj/Skills
-claude plugin install i-have-adhd@niebloomj-skills
+claude plugin marketplace add niebloomj/PersonalSkills
+claude plugin install niebloomj-skills@niebloomj-skills
 claude plugin marketplace update niebloomj-skills
 ```
 
 A plugin skill runs with its plugin name as a prefix, such as
-`/i-have-adhd:i-have-adhd`. Plugins come from `main`, so they carry the same
-reviewed content. Don't also install them on a machine that runs the sync, or
-each skill appears twice.
+`/niebloomj-skills:i-have-adhd`. The plugin comes from `main`, so it carries the same
+reviewed content, and installing it gives you every skill; you can't pick a subset.
+The skills have different upstream licenses, so the plugin declares none; each
+skill's license is under [`licenses/`](licenses/). Don't also install the plugin on a
+machine that runs the sync, or each skill appears twice.
 [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json) is generated
 from the catalog by the updater and `--vendor`; `--check` fails when it is stale.
 
