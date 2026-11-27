@@ -27,8 +27,12 @@ MARKETPLACE_FILE = ".claude-plugin/marketplace.json"
 MARKETPLACE = {
     "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
     "name": "niebloomj-skills",
-    "description": "Reviewed agent skills, one plugin per skill, pinned to upstream commits.",
+    "description": "Reviewed agent skills bundled as one plugin, pinned to upstream commits.",
     "owner": {"name": "niebloomj", "url": "https://github.com/niebloomj"},
+}
+MARKETPLACE_PLUGIN = {
+    "name": "niebloomj-skills",
+    "description": "Every skill in this catalog, reviewed and pinned to upstream commits.",
 }
 API = "https://api.github.com"
 RAW = "https://raw.githubusercontent.com"
@@ -628,17 +632,19 @@ def skill_description(skill: bytes) -> str:
     return " ".join(value.split())
 
 
-def marketplace_text(catalog: dict[str, Any], skills: dict[str, bytes] | None = None) -> str:
-    plugins = []
-    for name in sorted(catalog["skills"]):
-        skill = (skills or {}).get(name) or repository_path(f"skills/{name}/SKILL.md").read_bytes()
-        plugin: dict[str, Any] = {"name": name, "description": skill_description(skill)}
-        if source := catalog["skills"][name].get("source"):
-            if license_name := catalog["sources"].get(source, {}).get("license"):
-                plugin["license"] = license_name
-            plugin["repository"] = f"https://github.com/{source}"
-        plugins.append({**plugin, "source": "./", "strict": False, "skills": [f"./skills/{name}"]})
-    return json.dumps({**MARKETPLACE, "plugins": plugins}, indent=2) + "\n"
+def marketplace_text(catalog: dict[str, Any]) -> str:
+    """One plugin that bundles every catalog skill, so a machine needs a single install.
+
+    Skills come from several upstream sources with different licenses, so the plugin carries
+    no single `license` or `repository`; each skill's license is under `licenses/`.
+    """
+    plugin = {
+        **MARKETPLACE_PLUGIN,
+        "source": "./",
+        "strict": False,
+        "skills": [f"./skills/{name}" for name in sorted(catalog["skills"])],
+    }
+    return json.dumps({**MARKETPLACE, "plugins": [plugin]}, indent=2) + "\n"
 
 
 def read_source(repository: str, ref: str, path: str) -> bytes:
@@ -848,9 +854,7 @@ def vendor_catalog(catalog: dict[str, Any]) -> None:
         (staging / "catalog.json").write_text(catalog_text(catalog), encoding="utf-8")
         destinations.append(Path("catalog.json"))
         (staging / MARKETPLACE_FILE).parent.mkdir(parents=True, exist_ok=True)
-        (staging / MARKETPLACE_FILE).write_text(
-            marketplace_text(catalog, rendered), encoding="utf-8"
-        )
+        (staging / MARKETPLACE_FILE).write_text(marketplace_text(catalog), encoding="utf-8")
         destinations.append(Path(MARKETPLACE_FILE))
         catalog_path = repository_path("catalog.json")
         if (
@@ -991,8 +995,7 @@ def update_catalog(
         catalog_temp.write_text(catalog_text(catalog), encoding="utf-8")
         marketplace_temp = temp_root / MARKETPLACE_FILE
         marketplace_temp.parent.mkdir(parents=True)
-        skills = {name: files["SKILL.md"] for name, files in skill_updates.items()}
-        marketplace_temp.write_text(marketplace_text(catalog, skills), encoding="utf-8")
+        marketplace_temp.write_text(marketplace_text(catalog), encoding="utf-8")
 
         staged: list[tuple[Path, Path]] = [
             (ROOT / "skills" / name, temp_root / "skills" / name) for name in skill_updates

@@ -177,6 +177,10 @@ class UpstreamUpdateTests(unittest.TestCase):
     def marketplace(self):
         return self.root / ".claude-plugin/marketplace.json"
 
+    def bundled_skills(self):
+        (plugin,) = json.loads(self.marketplace().read_text())["plugins"]
+        return plugin["skills"]
+
     def fetch(self, repository, ref, source_path, name, tree_cache, exclude=None):
         tree_cache[(repository, ref)] = {
             "tree": [
@@ -210,8 +214,7 @@ class UpstreamUpdateTests(unittest.TestCase):
         self.assertEqual(report["written"], ["example/docs"])
         self.assertEqual(self.pins(), {"example/docs": NEW, "example/tools": OLD})
         self.assertIn(b"Write better things.", (self.root / "skills/docs/SKILL.md").read_bytes())
-        plugins = json.loads(self.marketplace().read_text())["plugins"]
-        self.assertEqual(plugins[0]["description"], "Write better things.")
+        self.assertEqual(self.bundled_skills(), ["./skills/docs", "./skills/tools"])
 
     def test_new_reference_documents_merge_automatically(self):
         self.upstream["docs"]["references/guide.md"] = b"# Guide\n"
@@ -229,25 +232,32 @@ class UpstreamUpdateTests(unittest.TestCase):
             with self.subTest(description=description):
                 self.upstream["docs"] = {"SKILL.md": skill_text("docs", description)}
                 self.assertEqual(self.update("clean")["review"], {})
-        plugins = json.loads(self.marketplace().read_text())["plugins"]
-        self.assertEqual(plugins[0]["description"], "Write better things.")
 
-    def test_marketplace_entries_are_complete_plugin_definitions(self):
-        catalog = {"skills": {"docs": {"source": "example/docs"}}, "sources": {"example/docs": {}}}
-        marketplace = update_skills.marketplace_text(catalog, {"docs": skill_text("docs")})
+    def test_marketplace_bundles_every_skill_in_one_plugin(self):
+        catalog = {
+            "skills": {"tools": {"source": "example/tools"}, "docs": {"source": "example/docs"}},
+            "sources": {"example/docs": {"license": "MIT"}, "example/tools": {}},
+        }
+        marketplace = json.loads(update_skills.marketplace_text(catalog))
+        self.assertEqual(marketplace["name"], "niebloomj-skills")
         self.assertEqual(
-            json.loads(marketplace)["plugins"],
+            marketplace["plugins"],
             [
                 {
-                    "name": "docs",
-                    "description": "Write things.",
-                    "repository": "https://github.com/example/docs",
+                    "name": "niebloomj-skills",
+                    "description": update_skills.MARKETPLACE_PLUGIN["description"],
                     "source": "./",
                     "strict": False,
-                    "skills": ["./skills/docs"],
+                    "skills": ["./skills/docs", "./skills/tools"],
                 }
             ],
         )
+
+    def test_marketplace_bundle_has_no_single_license_or_repository(self):
+        catalog = {"skills": {"docs": {"source": "example/docs"}}, "sources": {"example/docs": {}}}
+        (plugin,) = json.loads(update_skills.marketplace_text(catalog))["plugins"]
+        self.assertNotIn("license", plugin)
+        self.assertNotIn("repository", plugin)
 
     def test_marketplace_descriptions_join_block_descriptions(self):
         skill = skill_text("docs", ">\n  Write better\n  things.")
@@ -267,10 +277,8 @@ class UpstreamUpdateTests(unittest.TestCase):
         self.assertEqual(update_skills.skill_description(skill), "Write better things.")
 
     def test_marketplace_descriptions_unescape_quoted_text(self):
-        self.upstream["docs"] = {"SKILL.md": skill_text("docs", '"Write \\"better\\" things."')}
-        self.update("clean")
-        plugins = json.loads(self.marketplace().read_text())["plugins"]
-        self.assertEqual(plugins[0]["description"], 'Write "better" things.')
+        skill = skill_text("docs", '"Write \\"better\\" things."')
+        self.assertEqual(update_skills.skill_description(skill), 'Write "better" things.')
 
     def test_files_other_than_markdown_wait_for_review(self):
         for path, data in (

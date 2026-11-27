@@ -1,821 +1,91 @@
 {
   "$schema": "https://www.schemastore.org/claude-code-marketplace.json",
   "name": "niebloomj-skills",
-  "description": "Reviewed agent skills, one plugin per skill, pinned to upstream commits.",
+  "description": "Reviewed agent skills bundled as one plugin, pinned to upstream commits.",
   "owner": {
     "name": "niebloomj",
     "url": "https://github.com/niebloomj"
   },
   "plugins": [
     {
-      "name": "agentic-actions-auditor",
-      "description": "Audits GitHub Actions workflows for security vulnerabilities in AI agent integrations including Claude Code Action, Gemini CLI, OpenAI Codex, and GitHub AI Inference. Detects attack vectors where attacker-controlled input reaches AI agents running in CI/CD pipelines, including env var intermediary patterns, direct expression injection, dangerous sandbox configurations, and wildcard user allowlists. Use when reviewing workflow files that invoke AI coding agents, auditing CI/CD pipeline security for prompt injection risks, or evaluating agentic action configurations.",
-      "license": "CC-BY-SA-4.0",
-      "repository": "https://github.com/trailofbits/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/agentic-actions-auditor"
-      ]
-    },
-    {
-      "name": "agents-md",
-      "description": "Creates and maintains concise AGENTS.md and CLAUDE.md project instruction files. Use when asked to create AGENTS.md, update AGENTS.md, maintain agent docs, set up CLAUDE.md, document repository agent conventions, or keep coding-agent instructions minimal and reference-backed.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/getsentry/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/agents-md"
-      ]
-    },
-    {
-      "name": "aws-billing-and-cost-management",
-      "description": "Analyze AWS costs, find savings, manage budgets, evaluate Savings Plans and Reserved Instances, right-size EC2/Lambda/RDS/EBS with Compute Optimizer, look up service pricing, query CUR with Athena, detect cost anomalies, scope costs to billing views, and monitor Free Tier usage. Triggers on: AWS bill, cost analysis, reduce spend, savings plan, reserved instance, right-size, budget alert, cost optimization, pricing, free tier, cost anomaly, CUR, cost audit, billing view, billing view ARN.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/aws/agent-toolkit-for-aws",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/aws-billing-and-cost-management"
-      ]
-    },
-    {
-      "name": "aws-cdk",
-      "description": "Authors, deploys, and troubleshoots AWS infrastructure using CDK with TypeScript or Python. Covers best practices, stack architecture, and construct patterns. Applies when writing CDK constructs, bootstrapping environments, running cdk deploy/synth/diff, fixing CDK or CloudFormation errors, planning stack structure, importing existing resources, resolving drift, or refactoring stacks without resource replacement.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/aws/agent-toolkit-for-aws",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/aws-cdk"
-      ]
-    },
-    {
-      "name": "aws-containers",
-      "description": "Builds and deploys containerized workloads on Elastic Kubernetes Service (EKS), Elastic Container Service (ECS), Fargate, and ECR (Elastic Container Registry). Covers general EKS knowledge, Karpenter, AWS Load Balancer Controller and leveraging various open source Kubernetes projects with EKS. Covers general ECS knowledge, task definitions, Fargate services, ECS Exec, ECS Express Mode and ECS Managed Instances. Covers general Elastic Beanstalk knowledge, Elastic Beanstalk configuration and platforms supported by Elastic Beanstalk. Covers general ECR knowledge, ECR repository setup and lifecycle policies. Includes recommending, enabling, and reading Amazon ECS Action Logs to troubleshoot control-plane failures (deployment rollback/circuit-breaker, task placement, scaling, task replacement). Applies when deploying, debugging, or optimizing containers on AWS. Should be used instead of relying on internal knowledge for these services.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/aws/agent-toolkit-for-aws",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/aws-containers"
-      ]
-    },
-    {
-      "name": "aws-deployment",
-      "description": "Configures CI/CD pipelines using AWS CodePipeline, CodeBuild, CodeDeploy, CodeConnections, and CodeArtifact. Covers CodePipeline V2 (triggers, variables, execution modes, cross-account), buildspec.yml (caching, VPC, Docker), CodeDeploy strategies (blue/green, canary, linear), CodeArtifact (private package registries, auth tokens, cross-account), and source connections (GitHub, GitLab, Bitbucket). Applies when CodePipeline, CodeBuild, CodeDeploy, CodeConnections, CodeArtifact, buildspec.yml, appspec.yml, or CI/CD pipeline orchestration is referenced. Does NOT cover: ECS Fargate services or task definitions (use aws-containers), CDK Pipelines or cdk deploy (use aws-cdk), sam deploy (use aws-serverless), Amplify deployments (use aws-amplify), or GitHub Actions/GitLab CI.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/aws/agent-toolkit-for-aws",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/aws-deployment"
-      ]
-    },
-    {
-      "name": "aws-messaging-and-streaming",
-      "description": "Guides general use of AWS messaging and streaming services. Covers Amazon SQS, Amazon SNS, Amazon EventBridge, Amazon MQ, Amazon Kinesis Data Streams, Amazon Data Firehose, Amazon Managed Service for Apache Flink, and Amazon Managed Streaming for Apache Kafka (MSK). Use when reasoning about messaging and streaming patterns. Also identifies which AWS service owns each customer communication channel: email (Amazon SES), and WhatsApp, SMS, MMS, RCS, voice and mobile push (the AWS End User Messaging family of services). Routes the request to the specialized skill for that channel. Defers to the channel's specialized skill when the user already named a specific channel. In general, use specific skills or documentation searches for detailed service-specific questions. Do NOT use for MSK or Managed Service for Apache Flink questions, prefer specific skills. Does not configure customer communication channels; defers to specific skills.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/aws/agent-toolkit-for-aws",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/aws-messaging-and-streaming"
-      ]
-    },
-    {
-      "name": "aws-observability",
-      "description": "Investigates root causes on the Omni context graph (service dependencies); builds, configures, debugs, tunes AWS observability - operator-symptom questions, detecting Omni vs classic CloudWatch. CloudWatch on a reporting service: fleet health views, Log Insights, metric/composite/anomaly alarms, custom metrics/EMF, dashboards, X-Ray/ADOT tracing, canaries, CloudTrail (incl. OTLP/PromQL), Dynamic Instrumentation (live breakpoints), and Application Signals service map. CloudWatch Omni on an existing Space: SQL over logs/traces, PromQL, Omni dashboards, alerts and Slack notifications, programmatic/IaC access, driving Omni from a coding agent or skills, AI agent quality from traces - on-demand and online evaluation of live traffic, incl. setting it up, readback, evaluators. For first-time setup - creating an Omni Space, granting access, ingestion, or ADOT instrumentation for Application Signals or Omni - use setting-up-cloudwatch-observability. Not for app logging or threat detection.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/aws/agent-toolkit-for-aws",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/aws-observability"
-      ]
-    },
-    {
-      "name": "aws-sdk-python-usage",
-      "description": "AWS SDK for Python (boto3/botocore) development patterns. You MUST use this skill when writing Python code that uses AWS services via boto3 or botocore. This includes creating service clients or resources, configuring sessions and credentials, handling errors with ClientError, using paginators and waiters, S3 file transfers and presigned URLs, DynamoDB table operations, and any boto3/botocore client configuration. Use this skill whenever Python code imports boto3 or botocore, or when the user asks about AWS operations in Python.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/aws/agent-toolkit-for-aws",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/aws-sdk-python-usage"
-      ]
-    },
-    {
-      "name": "aws-serverless",
-      "description": "Routes serverless requests to a compute form factor and the skill that owns it. Applies to Lambda, API Gateway, EventBridge, Step Functions and event-driven work while the compute, orchestration or integration choice is open \u2014 API backends, webhooks, jobs, cron, queue/stream consumers, durable workflows, event routing, Step Functions vs Durable Functions, and Pipes vs native event source mappings for queues and streams. Decides Event Functions on-demand vs Managed Instances, Web Functions, MicroVMs, EventBridge rules/Scheduler/Pipes/bus, HTTP vs REST API. Owns shared Lambda references (cold starts, SnapStart, concurrency, event sources, function URLs, throttling, troubleshooting). Defers to the specialized skill once a request commits to one form factor or service, or describes its defining feature without naming it (durable checkpointing and automatic step retries, Firecracker sandbox, managed instances, Node.js server). Not for EC2, ECS/EKS/Fargate or Amplify hosting.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/aws/agent-toolkit-for-aws",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/aws-serverless"
-      ]
-    },
-    {
-      "name": "brainstorming",
-      "description": "You MUST use this before any creative work - creating features, building components, adding functionality, modifying behavior, or planning anything new, in software or out of it (a talk, a business, a renovation).",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/brainstorming"
-      ]
-    },
-    {
-      "name": "break-ui",
-      "description": "Try to break a piece of UI by feeding it worst-case data \u2014 long names, unbreakable emails, one-letter names, missing fields, huge counts, zero items, long labels, non-Latin text, emoji, extreme numbers \u2014 then render it behind a \"Demo data / Worst case\" toggle and report everything that broke, with the fix for each. Use when the user asks to stress-test, break, or find edge cases in a component or screen, or to \"try the worst case\". For visual design critique use emil-design-eng; for motion use review-animations.",
-      "license": "MIT",
-      "repository": "https://github.com/emilkowalski/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/break-ui"
-      ]
-    },
-    {
-      "name": "changelog-automation",
-      "description": "Automate changelog generation from commits, PRs, and releases following Keep a Changelog format. Use when setting up release workflows, generating release notes, or standardizing commit conventions.",
-      "license": "MIT",
-      "repository": "https://github.com/wshobson/agents",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/changelog-automation"
-      ]
-    },
-    {
-      "name": "chief-of-staff",
-      "description": "Pursue a long-running goal in a single session by co-ordinating subagents.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/chief-of-staff"
-      ]
-    },
-    {
-      "name": "choreograph",
-      "description": "Coordinate several elements that animate together \u2014 decide what moves, in what order, how much they overlap, and what stays still \u2014 so a group reads as one intentional motion instead of a pile of separate animations. Use when building or fixing a staggered list, a hero entrance, a view swap inside a container, a multi-step flow, an element leaving while its siblings close the gap, a morph between rich states, or any interaction with several moving parts (icon + background + lines, panel + content, items flying into a target). Triggers on \u2014 stagger, sequence, choreography, \"one after another\", crossfade, AnimatePresence mode, hero entrance, multi-step, useAnimate, \"feels mechanical\", \"too much going on\", \"feels slow to open\".",
-      "license": "MIT",
-      "repository": "https://github.com/emilkowalski/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/choreograph"
-      ]
-    },
-    {
-      "name": "code-simplifier",
-      "description": "Simplifies and refines code for clarity, consistency, and maintainability while preserving all functionality. Use when asked to \"simplify code\", \"clean up code\", \"refactor for clarity\", \"improve readability\", or review recently modified code for elegance. Focuses on project-specific best practices.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/getsentry/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/code-simplifier"
-      ]
-    },
-    {
-      "name": "codebase-design",
-      "description": "Shared vocabulary for designing deep modules. Use when the user wants to design or improve a module's interface, find deepening opportunities, decide where a seam goes, make code more testable or AI-navigable, or when another skill needs the deep-module vocabulary.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/codebase-design"
-      ]
-    },
-    {
-      "name": "codebase-memory",
-      "description": "Use the codebase knowledge graph for structural code queries. Triggers on: explore the codebase, understand the architecture, what functions exist, show me the structure, who calls this function, what does X call, trace the call chain, find callers of, show dependencies, impact analysis, dead code, unused functions, high fan-out, refactor candidates, code quality audit, graph query syntax, Cypher query examples, edge types, how to use search_graph.",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/codebase-memory"
-      ]
-    },
-    {
-      "name": "cold-email",
-      "description": "When the user wants to write or run B2B cold outbound, or asks whether an opener, reason to reach out, or email works or why nobody replies: cold emails, follow-ups, sending domains, deliverability, LinkedIn, cadences. Send from secondary domains, verify lists first, turn off open tracking, stop every channel when a prospect replies. No AI tells like 'it's not X, it's Y'. For the list, see prospecting. For lifecycle email, see emails. For call scripts, see sales-enablement.",
-      "license": "MIT",
-      "repository": "https://github.com/coreyhaines31/marketingskills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/cold-email"
-      ]
-    },
-    {
-      "name": "dispatching-parallel-agents",
-      "description": "Use when facing 2+ independent tasks that can be worked on without shared state or sequential dependencies",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/dispatching-parallel-agents"
-      ]
-    },
-    {
-      "name": "domain-modeling",
-      "description": "Build and sharpen a project's domain model. Use when discussing codebase terminology, writing or editing a GLOSSARY.md, or recording or editing an ADR.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/domain-modeling"
-      ]
-    },
-    {
-      "name": "e2e-testing-patterns",
-      "description": "Master end-to-end testing with Playwright and Cypress to build reliable test suites that catch bugs, improve confidence, and enable fast deployment. Use when implementing E2E tests, debugging flaky tests, or establishing testing standards.",
-      "license": "MIT",
-      "repository": "https://github.com/wshobson/agents",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/e2e-testing-patterns"
-      ]
-    },
-    {
-      "name": "emil-design-eng",
-      "description": "Emil Kowalski's design-engineering philosophy for UI polish, component design, animation decisions, and the invisible details that make software feel great. Use when building or reviewing a UI component's interactions and polish (press and hover states, popover origin, tooltip timing, transitions vs keyframes, clip-path techniques, drag details) and no narrower skill fits.",
-      "license": "MIT",
-      "repository": "https://github.com/emilkowalski/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/emil-design-eng"
-      ]
-    },
-    {
-      "name": "executing-plans",
-      "description": "Use when executing an implementation plan in the current session as the implementer yourself \u2014 your human partner chose inline execution, or no subagent tool is available",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/executing-plans"
-      ]
-    },
-    {
-      "name": "fastapi",
-      "description": "FastAPI best practices and conventions. Use when working with FastAPI APIs, Pydantic models, dependencies, streaming responses including Server-Sent Events (SSE), and serving frontend apps. Keeps FastAPI code clean and up to date with the latest features and patterns.",
-      "license": "MIT",
-      "repository": "https://github.com/fastapi/fastapi",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/fastapi"
-      ]
-    },
-    {
-      "name": "find-skills",
-      "description": "Helps users discover and install agent skills when they ask questions like \"how do I do X\", \"find a skill for X\", \"is there a skill that can...\", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.",
-      "license": "MIT",
-      "repository": "https://github.com/vercel-labs/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/find-skills"
-      ]
-    },
-    {
-      "name": "finding-duplicate-functions",
-      "description": "Use when auditing a codebase for semantic duplication - functions that do the same thing but have different names or implementations. Especially useful for LLM-generated codebases where new functions are often created rather than reusing existing ones.",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers-lab",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/finding-duplicate-functions"
-      ]
-    },
-    {
-      "name": "finishing-a-development-branch",
-      "description": "Use when implementation is complete, all tests pass, and you need to decide how to integrate the work",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/finishing-a-development-branch"
-      ]
-    },
-    {
-      "name": "gh-address-comments",
-      "description": "Help address review/issue comments on the open GitHub PR for the current branch using gh CLI; verify gh auth first and prompt the user to authenticate if not logged in.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/openai/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/gh-address-comments"
-      ]
-    },
-    {
-      "name": "gha-security-review",
-      "description": "GitHub Actions security review for workflow exploitation vulnerabilities. Use when asked to \"review GitHub Actions\", \"audit workflows\", \"check CI security\", \"GHA security\", \"workflow security review\", or review .github/workflows/ for pwn requests, expression injection, credential theft, and supply chain attacks. Exploitation-focused with concrete PoC scenarios.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/getsentry/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/gha-security-review"
-      ]
-    },
-    {
-      "name": "github-actions-templates",
-      "description": "Create production-ready GitHub Actions workflows for automated testing, building, and deploying applications. Use when setting up CI/CD with GitHub Actions, automating development workflows, or creating reusable workflow templates.",
-      "license": "MIT",
-      "repository": "https://github.com/wshobson/agents",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/github-actions-templates"
-      ]
-    },
-    {
-      "name": "gpt-image-2",
-      "description": "Generate images with GPT Image 2 (ChatGPT Images 2.0) inside Claude Code, using your existing ChatGPT Plus or Pro subscription \u2014 no separate OpenAI access, no per-image billing. Supports text-to-image, image-to-image editing, style transfer, and multi-reference composition via the local Codex CLI. Triggers on \"gpt image 2\", \"gpt-image-2\", \"ChatGPT Images 2.0\", \"image 2\", or any explicit ask to generate or edit an image through the user's ChatGPT plan.",
-      "license": "MIT",
-      "repository": "https://github.com/agentspace-so/agent-skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/gpt-image-2"
-      ]
-    },
-    {
-      "name": "grill-with-docs",
-      "description": "A relentless interview to sharpen a plan or design, which also creates docs (ADR's and glossary) as we go.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/grill-with-docs"
-      ]
-    },
-    {
-      "name": "grilling",
-      "description": "Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/grilling"
-      ]
-    },
-    {
-      "name": "handoff",
-      "description": "Compact the current conversation into a handoff document for another agent to pick up.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/handoff"
-      ]
-    },
-    {
-      "name": "humanizer",
-      "description": "Rewrite AI-sounding text so it reads like the writer without changing what it says. Use when editing or reviewing prose for AI tells: not-X-but-Y contrasts, one-line closers, staged openers, forced triads, dashes everywhere, inflated claims, sales language, stock AI words, bold labels, or filler.",
-      "license": "MIT",
-      "repository": "https://github.com/blader/humanizer",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/humanizer"
-      ]
-    },
-    {
-      "name": "i-have-adhd",
-      "description": "Shape output for a reader with ADHD: lead with the next action, number multi-step work, restate state across turns, suppress tangents, give specific time estimates, make wins visible. Invoke with /i-have-adhd; stays on until \"stop adhd mode\".",
-      "license": "MIT",
-      "repository": "https://github.com/ayghri/i-have-adhd",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/i-have-adhd"
-      ]
-    },
-    {
-      "name": "implement-spec",
-      "description": "Implement the result of /to-spec and /to-tickets in code.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/implement-spec"
-      ]
-    },
-    {
-      "name": "improve-codebase-architecture",
-      "description": "Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/improve-codebase-architecture"
-      ]
-    },
-    {
-      "name": "modern-python",
-      "description": "Configures Python projects with modern tooling (uv, ruff, ty). Use when creating projects, writing standalone scripts, or migrating from pip/Poetry/mypy/black.",
-      "license": "CC-BY-SA-4.0",
-      "repository": "https://github.com/trailofbits/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/modern-python"
-      ]
-    },
-    {
-      "name": "playwright-cli",
-      "description": "Automate browser interactions, test web pages and work with Playwright tests.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/microsoft/playwright-cli",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/playwright-cli"
-      ]
-    },
-    {
-      "name": "python-testing-patterns",
-      "description": "Implement comprehensive testing strategies with pytest, fixtures, mocking, and test-driven development. Use when writing Python tests, setting up test suites, or implementing testing best practices.",
-      "license": "MIT",
-      "repository": "https://github.com/wshobson/agents",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/python-testing-patterns"
-      ]
-    },
-    {
-      "name": "receiving-code-review",
-      "description": "Use when receiving code review feedback, before implementing suggestions, especially if feedback seems unclear or technically questionable - requires technical rigor and verification, not performative agreement or blind implementation",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/receiving-code-review"
-      ]
-    },
-    {
-      "name": "requesting-code-review",
-      "description": "Use when completing tasks, implementing major features, or before merging to verify work meets requirements",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/requesting-code-review"
-      ]
-    },
-    {
-      "name": "retro",
-      "description": "Conduct a retrospective on a coding session.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/retro"
-      ]
-    },
-    {
-      "name": "review-animations",
-      "description": "Reviews animation and motion code against a high craft bar derived from Emil Kowalski's design engineering philosophy. Default to flagging; approval is earned.",
-      "license": "MIT",
-      "repository": "https://github.com/emilkowalski/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/review-animations"
-      ]
-    },
-    {
-      "name": "second-opinion",
-      "description": "Gets independent code reviews from Codex or Antigravity for uncommitted changes, branch diffs, and commits. Use when the user requests an external review, a second opinion on code, a codex review, a gemini review, an antigravity review, or /second-opinion.",
-      "license": "CC-BY-SA-4.0",
-      "repository": "https://github.com/trailofbits/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/second-opinion"
-      ]
-    },
-    {
-      "name": "security-best-practices",
-      "description": "Perform language and framework specific security best-practice reviews and suggest improvements. Trigger only when the user explicitly requests security best practices guidance, a security review/report, or secure-by-default coding help. Trigger only for supported languages (python, javascript/typescript, go). Do not trigger for general code review, debugging, or non-security tasks.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/openai/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/security-best-practices"
-      ]
-    },
-    {
-      "name": "security-threat-model",
-      "description": "Repository-grounded threat modeling that enumerates trust boundaries, assets, attacker capabilities, abuse paths, and mitigations, and writes a concise Markdown threat model. Trigger only when the user explicitly asks to threat model a codebase or path, enumerate threats/abuse paths, or perform AppSec threat modeling. Do not trigger for general architecture summaries, code review, or non-security design work.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/openai/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/security-threat-model"
-      ]
-    },
-    {
-      "name": "sentry-cli",
-      "description": "Guide for using the Sentry CLI to interact with Sentry from the command line. Use when the user asks about viewing issues, events, projects, organizations, making API calls, or authenticating with Sentry via CLI.",
-      "license": "FSL-1.1-Apache-2.0",
-      "repository": "https://github.com/getsentry/toolkit",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/sentry-cli"
-      ]
-    },
-    {
-      "name": "sentry-code-review",
-      "description": "Perform code reviews following Sentry engineering practices. Use when reviewing pull requests, examining code changes, or providing feedback on code quality. Covers security, performance, testing, and design review.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/getsentry/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/sentry-code-review"
-      ]
-    },
-    {
-      "name": "seo-audit",
-      "description": "When the user wants to audit or diagnose SEO, or asks why traffic dropped, a page won't rank, or whether a setup like canonicals, hreflang, or redirects is right: technical SEO, indexing, Google updates, on-page and titles, Core Web Vitals, local SEO. Start here when someone just says their SEO is bad. For pages at scale, see programmatic-seo. For structured data, see schema. For AI search, see ai-seo.",
-      "license": "MIT",
-      "repository": "https://github.com/coreyhaines31/marketingskills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/seo-audit"
-      ]
-    },
-    {
-      "name": "setup-matt-pocock-skills",
-      "description": "Configure this repo for the engineering skills: set up its issue tracker, triage label vocabulary, and domain doc layout. Run once before first use of the other engineering skills.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/setup-matt-pocock-skills"
-      ]
-    },
-    {
-      "name": "setup-pre-commit",
-      "description": "Set up Husky pre-commit hooks with lint-staged (Prettier), type checking, and tests in the current repo. Use when user wants to add pre-commit hooks, set up Husky, configure lint-staged, or add commit-time formatting/typechecking/testing.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/setup-pre-commit"
-      ]
-    },
-    {
-      "name": "sharp-edges",
-      "description": "Identifies error-prone APIs, dangerous configurations, and footgun designs that enable security mistakes. Use when reviewing API designs, configuration schemas, cryptographic library ergonomics, or evaluating whether code follows 'secure by default' and 'pit of success' principles. Triggers: footgun, misuse-resistant, secure defaults, API usability, dangerous configuration.",
-      "license": "CC-BY-SA-4.0",
-      "repository": "https://github.com/trailofbits/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/sharp-edges"
-      ]
-    },
-    {
-      "name": "skill-creator",
-      "description": "Create new skills, modify and improve existing skills, and measure skill performance. Use when users want to create a skill from scratch, edit, or optimize an existing skill, run evals to test a skill, benchmark skill performance with variance analysis, or optimize a skill's description for better triggering accuracy.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/anthropics/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/skill-creator"
-      ]
-    },
-    {
-      "name": "skill-scanner",
-      "description": "Scan agent skills for security issues. Use when asked to \"scan a skill\", \"audit a skill\", \"review skill security\", \"check skill for injection\", \"validate SKILL.md\", or assess whether an agent skill is safe to install. Checks for prompt injection, malicious scripts, excessive permissions, secret exposure, and supply chain risks.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/getsentry/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/skill-scanner"
-      ]
-    },
-    {
-      "name": "standards-spec-review",
-      "description": "Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes: Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to \"review since X\".",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/standards-spec-review"
-      ]
-    },
-    {
-      "name": "subagent-driven-development",
-      "description": "Use when executing implementation plans with independent tasks in the current session",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/subagent-driven-development"
-      ]
-    },
-    {
-      "name": "supabase-postgres-best-practices",
-      "description": "Postgres best practices maintained by Supabase, for Postgres running anywhere. Load this skill BEFORE writing or changing anything that lives in a Postgres database: creating or altering tables and columns (including choosing column types), schema design, migrations and declarative schema files, RLS policies and the tests that verify them, indexes, triggers, database functions, queues and scheduled jobs (pg_cron, pgmq), vector/semantic search (pgvector), and restoring dumps (pg_restore) or importing data. Also load it when diagnosing slow queries, high CPU, timeouts, EXPLAIN plans, connection exhaustion, locking, bloat, or rows visible to the wrong user or tenant. This is not just a performance guide \u2014 schema, migration, security, and SQL authoring tasks need these rules too, even for a one-column change or a single query.",
-      "license": "MIT",
-      "repository": "https://github.com/supabase/agent-skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/supabase-postgres-best-practices"
-      ]
-    },
-    {
-      "name": "systematic-debugging",
-      "description": "Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/systematic-debugging"
-      ]
-    },
-    {
-      "name": "test-driven-development",
-      "description": "Use when implementing any feature or bugfix, before writing implementation code",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/test-driven-development"
-      ]
-    },
-    {
-      "name": "to-spec",
-      "description": "Turn the current conversation into a spec and publish it to the project issue tracker: no interview, just synthesis of what you've already discussed.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/to-spec"
-      ]
-    },
-    {
-      "name": "to-tickets",
-      "description": "Break a plan, spec, or the current conversation into a set of tracer-bullet tickets, each declaring its blocking edges, published to the configured tracker (edges as text in one file per ticket locally, or native blocking links on a real tracker).",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/to-tickets"
-      ]
-    },
-    {
-      "name": "triage",
-      "description": "Move issues and external PRs through a state machine of triage roles, categorise, verify, grill if needed, and write agent-ready briefs.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/triage"
-      ]
-    },
-    {
-      "name": "typesafe-ai",
-      "description": "TypeSafe integration craft for System One models (sometimes called Decision Models) such as Jev, which answer typed questions about text, images, and application state with calibrated probabilities. Use when building, reviewing, or debugging code that calls TypeSafe; when writing its questions or state; when replacing an LLM prompt-and-parse step, keyword matching, or a brittle heuristic with a typed question; or when brainstorming where programmable common sense fits in an app.",
-      "license": "MIT",
-      "repository": "https://github.com/typesafe-ai/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/typesafe-ai"
-      ]
-    },
-    {
-      "name": "using-git-worktrees",
-      "description": "Use when starting feature work that needs isolation from current workspace or before executing implementation plans - ensures an isolated workspace exists via native tools or git worktree fallback",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/using-git-worktrees"
-      ]
-    },
-    {
-      "name": "using-superpowers",
-      "description": "Use when starting any conversation - establishes how to find and use skills, requiring skill invocation before ANY response including clarifying questions",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/using-superpowers"
-      ]
-    },
-    {
-      "name": "verification-before-completion",
-      "description": "Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/verification-before-completion"
-      ]
-    },
-    {
-      "name": "wait-what",
-      "description": "Stop. That last message did not land: re-pitch it.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/wait-what"
-      ]
-    },
-    {
-      "name": "webapp-testing",
-      "description": "Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior, capturing browser screenshots, and viewing browser logs.",
-      "license": "Apache-2.0",
-      "repository": "https://github.com/anthropics/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/webapp-testing"
-      ]
-    },
-    {
-      "name": "writing-for-agents",
-      "description": "Writing documents for agents. Use when creating or editing skills, or modifying AGENTS.md or CLAUDE.md.",
-      "license": "MIT",
-      "repository": "https://github.com/mattpocock/skills",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/writing-for-agents"
-      ]
-    },
-    {
-      "name": "writing-plans",
-      "description": "Use when you have a spec or requirements for a multi-step task, before touching code",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
-        "./skills/writing-plans"
-      ]
-    },
-    {
-      "name": "writing-skills",
-      "description": "Use when creating new skills, editing existing skills, or verifying skills work before deployment",
-      "license": "MIT",
-      "repository": "https://github.com/obra/superpowers",
-      "source": "./",
-      "strict": false,
-      "skills": [
+      "name": "niebloomj-skills",
+      "description": "Every skill in this catalog, reviewed and pinned to upstream commits.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/agentic-actions-auditor",
+        "./skills/agents-md",
+        "./skills/aws-billing-and-cost-management",
+        "./skills/aws-cdk",
+        "./skills/aws-containers",
+        "./skills/aws-deployment",
+        "./skills/aws-messaging-and-streaming",
+        "./skills/aws-observability",
+        "./skills/aws-sdk-python-usage",
+        "./skills/aws-serverless",
+        "./skills/brainstorming",
+        "./skills/break-ui",
+        "./skills/changelog-automation",
+        "./skills/chief-of-staff",
+        "./skills/choreograph",
+        "./skills/code-simplifier",
+        "./skills/codebase-design",
+        "./skills/codebase-memory",
+        "./skills/cold-email",
+        "./skills/dispatching-parallel-agents",
+        "./skills/domain-modeling",
+        "./skills/e2e-testing-patterns",
+        "./skills/emil-design-eng",
+        "./skills/executing-plans",
+        "./skills/fastapi",
+        "./skills/find-skills",
+        "./skills/finding-duplicate-functions",
+        "./skills/finishing-a-development-branch",
+        "./skills/gh-address-comments",
+        "./skills/gha-security-review",
+        "./skills/github-actions-templates",
+        "./skills/gpt-image-2",
+        "./skills/grill-with-docs",
+        "./skills/grilling",
+        "./skills/handoff",
+        "./skills/humanizer",
+        "./skills/i-have-adhd",
+        "./skills/implement-spec",
+        "./skills/improve-codebase-architecture",
+        "./skills/modern-python",
+        "./skills/playwright-cli",
+        "./skills/python-testing-patterns",
+        "./skills/receiving-code-review",
+        "./skills/requesting-code-review",
+        "./skills/retro",
+        "./skills/review-animations",
+        "./skills/second-opinion",
+        "./skills/security-best-practices",
+        "./skills/security-threat-model",
+        "./skills/sentry-cli",
+        "./skills/sentry-code-review",
+        "./skills/seo-audit",
+        "./skills/setup-matt-pocock-skills",
+        "./skills/setup-pre-commit",
+        "./skills/sharp-edges",
+        "./skills/skill-creator",
+        "./skills/skill-scanner",
+        "./skills/standards-spec-review",
+        "./skills/subagent-driven-development",
+        "./skills/supabase-postgres-best-practices",
+        "./skills/systematic-debugging",
+        "./skills/test-driven-development",
+        "./skills/to-spec",
+        "./skills/to-tickets",
+        "./skills/triage",
+        "./skills/typesafe-ai",
+        "./skills/using-git-worktrees",
+        "./skills/using-superpowers",
+        "./skills/verification-before-completion",
+        "./skills/wait-what",
+        "./skills/webapp-testing",
+        "./skills/writing-for-agents",
+        "./skills/writing-plans",
         "./skills/writing-skills"
       ]
     }
