@@ -1,6 +1,6 @@
 ---
 name: sentry-cli
-version: 0.50.0-dev.0
+version: 0.51.0-dev.0
 description: Guide for using the Sentry CLI to interact with Sentry from the command line. Use when the user asks about viewing issues, events, projects, organizations, making API calls, or authenticating with Sentry via CLI.
 requires:
   bins: ["sentry"]
@@ -152,10 +152,12 @@ sentry local run --open -- npm run dev
 # Watch only AI/agent (gen_ai, mcp) spans while iterating on an agent.
 sentry local -f ai
 
-# Node.js and Python SDKs read SENTRY_SPOTLIGHT on their own. The CLI also
-# injects the URL under framework client prefixes (NEXT_PUBLIC_, VITE_,
-# PUBLIC_, NUXT_PUBLIC_, REACT_APP_, VUE_APP_, GATSBY_), but browser SDKs
-# ignore them. Pass the var to the integration in the client config:
+# Node.js, Python, and Ruby SDKs read SENTRY_SPOTLIGHT on their own. PHP needs
+# 'spotlight' => getenv('SENTRY_SPOTLIGHT'). Go and Rust have no Spotlight
+# support: set SENTRY_DSN=http://key@localhost:8970/0 and pin --port 8970.
+# The CLI also injects the URL under framework client prefixes (NEXT_PUBLIC_,
+# VITE_, PUBLIC_, NUXT_PUBLIC_, REACT_APP_, VUE_APP_, GATSBY_), but browser
+# SDKs ignore them. Pass the var to the integration in the client config:
 # integrations: [Sentry.spotlightBrowserIntegration({ sidecarUrl: process.env.NEXT_PUBLIC_SENTRY_SPOTLIGHT })]
 # Cloudflare Workers capture nothing until withSentry() sets
 # tunnel: env.SENTRY_SPOTLIGHT and a DSN (a placeholder works).
